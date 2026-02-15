@@ -116,7 +116,7 @@ export const NotesList: FC<NotesListProps> = () => {
 			const ids = virtualNoteItems.map((i) => noteIds[i.index]);
 			if (ids.length === 0) return;
 
-			loadViewportNotes(noteIds);
+			loadViewportNotes(ids);
 		};
 
 		const cleanupUpdated = eventBus.listen(WorkspaceEvents.NOTE_UPDATED, update);
@@ -206,6 +206,9 @@ export const NotesList: FC<NotesListProps> = () => {
 											scrollCorrectionIndexRef.current !==
 											virtualRow.index
 										)
+											return;
+
+										if (node !== null && isElementInViewport(node))
 											return;
 
 										virtualizer.scrollToIndex(virtualRow.index, {
