@@ -53,6 +53,7 @@ export const NotesList: FC<NotesListProps> = () => {
 		estimateSize: () => 70,
 		overscan: 7,
 		useFlushSync: false,
+		gap: 4,
 	});
 
 	const virtualNoteItems = virtualizer.getVirtualItems();
@@ -125,7 +126,7 @@ export const NotesList: FC<NotesListProps> = () => {
 			const isVisible =
 				activeNoteRef.current && isElementInViewport(activeNoteRef.current);
 			if (!isVisible) {
-				virtualizer.scrollToIndex(noteIndex, { align: 'center' });
+				virtualizer.scrollToIndex(noteIndex, { align: 'start' });
 			}
 
 			lastScrolledNoteRef.current = { id: activeNoteId, isScrolled: true };
@@ -133,7 +134,7 @@ export const NotesList: FC<NotesListProps> = () => {
 		}
 
 		// Trigger loading note via scroll
-		virtualizer.scrollToIndex(noteIndex, { align: 'center' });
+		virtualizer.scrollToIndex(noteIndex, { align: 'start' });
 		lastScrolledNoteRef.current = { id: activeNoteId, isScrolled: false };
 	}, [activeNoteId, noteIds, notesInViewport, virtualizer]);
 
