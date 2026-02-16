@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useRef, useState } from 'react';
+import React, { FC, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { WorkspaceEvents } from '@api/events/workspace';
 import { Box, Skeleton, Text, VStack } from '@chakra-ui/react';
 import { NotePreview } from '@components/NotePreview/NotePreview';
@@ -46,8 +46,6 @@ export const NotesList: FC<NotesListProps> = () => {
 	const parentRef = useRef<HTMLDivElement>(null);
 	const isActiveWorkspace = useIsActiveWorkspace();
 
-	// FIXME: https://github.com/TanStack/virtual/issues/1119
-	// eslint-disable-next-line react-hooks/incompatible-library
 	const virtualizer = useVirtualizer({
 		enabled: isActiveWorkspace,
 		count: noteIds.length,
@@ -58,33 +56,6 @@ export const NotesList: FC<NotesListProps> = () => {
 	});
 
 	const virtualNoteItems = virtualizer.getVirtualItems();
-
-	// Scroll to active note
-	const activeNoteRef = useRef<HTMLDivElement | null>(null);
-
-	// Save index to made a corrective scroll after the NotePreview is rendered and measured
-	// because sometimes after scrolling the preview remains outside the viewport
-	const scrollCorrectionIndexRef = useRef<number | null>(null);
-	useEffect(() => {
-		if (!activeNoteId) return;
-
-		// Skip if active note is in viewport
-		if (activeNoteRef.current !== null && isElementInViewport(activeNoteRef.current))
-			return;
-
-		const noteIndex = noteIds.findIndex((noteId) => noteId === activeNoteId);
-		if (noteIndex === -1) return;
-
-		virtualizer.scrollToIndex(noteIndex, { align: 'start' });
-
-		scrollCorrectionIndexRef.current = noteIndex;
-	}, [activeNoteId, noteIds, virtualizer]);
-
-	// Reset the scroll bar after a view change
-	const notesView = useWorkspaceSelector(selectNotesView);
-	useEffect(() => {
-		virtualizer.scrollToOffset(0);
-	}, [notesView, virtualizer]);
 
 	// Load notes
 	const [notesInViewport, setNotesInViewport] = useState<Record<NoteId, INote>>({});
@@ -134,6 +105,48 @@ export const NotesList: FC<NotesListProps> = () => {
 		virtualNoteItems,
 		noteIds,
 	]);
+
+	// Scroll to active note
+	const activeNoteRef = useRef<HTMLDivElement | null>(null);
+	const lastScrolledNoteRef = useRef<{ id: string; isScrolled: boolean } | null>(null);
+	useLayoutEffect(() => {
+		if (!activeNoteId) return;
+		if (
+			lastScrolledNoteRef.current?.id === activeNoteId &&
+			lastScrolledNoteRef.current.isScrolled
+		)
+			return;
+
+		const noteIndex = noteIds.indexOf(activeNoteId);
+		if (noteIndex === -1) return;
+
+		if (notesInViewport[activeNoteId]) {
+			// Skip scroll if active note is in viewport
+			const isVisible =
+				activeNoteRef.current && isElementInViewport(activeNoteRef.current);
+			if (!isVisible) {
+				virtualizer.scrollToIndex(noteIndex, { align: 'start' });
+			}
+
+			lastScrolledNoteRef.current = { id: activeNoteId, isScrolled: true };
+			return;
+		}
+
+		// Trigger loading note via scroll
+		virtualizer.scrollToIndex(noteIndex, { align: 'start' });
+		lastScrolledNoteRef.current = { id: activeNoteId, isScrolled: false };
+	}, [activeNoteId, noteIds, notesInViewport, virtualizer]);
+
+	// Reset the scroll bar after a view change
+	const notesView = useWorkspaceSelector(selectNotesView);
+	useEffect(() => {
+		virtualizer.scrollToOffset(0);
+
+		if (activeNoteId) {
+			lastScrolledNoteRef.current = { id: activeNoteId, isScrolled: false };
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [notesView]);
 
 	// TODO: implement dragging and moving items
 	return (
@@ -196,25 +209,11 @@ export const NotesList: FC<NotesListProps> = () => {
 								<NotePreview
 									key={note.id}
 									ref={(node) => {
+										if (isActive) {
+											activeNoteRef.current = node;
+										}
+
 										virtualizer.measureElement(node);
-
-										if (!isActive) return;
-										activeNoteRef.current = node;
-
-										// Corrective scroll to the active note if needed
-										if (
-											scrollCorrectionIndexRef.current !==
-											virtualRow.index
-										)
-											return;
-
-										if (node !== null && isElementInViewport(node))
-											return;
-
-										virtualizer.scrollToIndex(virtualRow.index, {
-											align: 'start',
-										});
-										scrollCorrectionIndexRef.current = null;
 									}}
 									data-index={virtualRow.index}
 									isSelected={isActive}
