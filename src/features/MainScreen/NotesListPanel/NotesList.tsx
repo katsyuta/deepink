@@ -51,9 +51,8 @@ export const NotesList: FC<NotesListProps> = () => {
 		count: noteIds.length,
 		getScrollElement: () => parentRef.current,
 		estimateSize: () => 70,
-		overscan: 7,
+		overscan: 5,
 		useFlushSync: false,
-		gap: 4,
 	});
 
 	const virtualNoteItems = virtualizer.getVirtualItems();
@@ -123,7 +122,7 @@ export const NotesList: FC<NotesListProps> = () => {
 
 		// Scroll to the index to trigger loading for the missing note
 		if (!notesInViewport[activeNoteId]) {
-			virtualizer.scrollToIndex(noteIndex, { align: 'start' });
+			virtualizer.scrollToIndex(noteIndex, { align: 'center' });
 			lastScrolledNoteRef.current = { id: activeNoteId, isScrolled: false };
 			return;
 		}
@@ -134,7 +133,7 @@ export const NotesList: FC<NotesListProps> = () => {
 			return;
 		}
 
-		virtualizer.scrollToIndex(noteIndex, { align: 'start' });
+		virtualizer.scrollToIndex(noteIndex, { align: 'center' });
 		lastScrolledNoteRef.current = { id: activeNoteId, isScrolled: true };
 	}, [activeNoteId, noteIds, notesInViewport, virtualizer]);
 
