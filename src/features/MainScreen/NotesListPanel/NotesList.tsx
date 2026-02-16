@@ -121,21 +121,21 @@ export const NotesList: FC<NotesListProps> = () => {
 		const noteIndex = noteIds.indexOf(activeNoteId);
 		if (noteIndex === -1) return;
 
-		if (notesInViewport[activeNoteId]) {
-			// Skip scroll if active note is in viewport
-			const isVisible =
-				activeNoteRef.current && isElementInViewport(activeNoteRef.current);
-			if (!isVisible) {
-				virtualizer.scrollToIndex(noteIndex, { align: 'start' });
-			}
+		// Scroll to the index to trigger loading for the missing note
+		if (!notesInViewport[activeNoteId]) {
+			virtualizer.scrollToIndex(noteIndex, { align: 'start' });
+			lastScrolledNoteRef.current = { id: activeNoteId, isScrolled: false };
+			return;
+		}
 
+		// Skip if active note is in viewport
+		if (activeNoteRef.current && isElementInViewport(activeNoteRef.current)) {
 			lastScrolledNoteRef.current = { id: activeNoteId, isScrolled: true };
 			return;
 		}
 
-		// Trigger loading note via scroll
 		virtualizer.scrollToIndex(noteIndex, { align: 'start' });
-		lastScrolledNoteRef.current = { id: activeNoteId, isScrolled: false };
+		lastScrolledNoteRef.current = { id: activeNoteId, isScrolled: true };
 	}, [activeNoteId, noteIds, notesInViewport, virtualizer]);
 
 	// Reset the scroll bar after a view change
