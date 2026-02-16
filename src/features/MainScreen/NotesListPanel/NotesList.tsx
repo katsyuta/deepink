@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { FC, useEffect, useRef, useState } from 'react';
 import { WorkspaceEvents } from '@api/events/workspace';
 import { Box, Skeleton, Text, VStack } from '@chakra-ui/react';
 import { NotePreview } from '@components/NotePreview/NotePreview';
@@ -109,7 +109,7 @@ export const NotesList: FC<NotesListProps> = () => {
 	// Scroll to active note
 	const activeNoteRef = useRef<HTMLDivElement | null>(null);
 	const lastScrolledNoteRef = useRef<{ id: string; isScrolled: boolean } | null>(null);
-	useLayoutEffect(() => {
+	useEffect(() => {
 		if (!activeNoteId) return;
 		if (
 			lastScrolledNoteRef.current?.id === activeNoteId &&
@@ -125,7 +125,7 @@ export const NotesList: FC<NotesListProps> = () => {
 			const isVisible =
 				activeNoteRef.current && isElementInViewport(activeNoteRef.current);
 			if (!isVisible) {
-				virtualizer.scrollToIndex(noteIndex, { align: 'start' });
+				virtualizer.scrollToIndex(noteIndex, { align: 'center' });
 			}
 
 			lastScrolledNoteRef.current = { id: activeNoteId, isScrolled: true };
@@ -133,7 +133,7 @@ export const NotesList: FC<NotesListProps> = () => {
 		}
 
 		// Trigger loading note via scroll
-		virtualizer.scrollToIndex(noteIndex, { align: 'start' });
+		virtualizer.scrollToIndex(noteIndex, { align: 'center' });
 		lastScrolledNoteRef.current = { id: activeNoteId, isScrolled: false };
 	}, [activeNoteId, noteIds, notesInViewport, virtualizer]);
 
