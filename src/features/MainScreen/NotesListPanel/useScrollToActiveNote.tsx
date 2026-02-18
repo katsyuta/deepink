@@ -42,9 +42,9 @@ export const useScrollToActiveNote = ({
 			align: scrollAlignment,
 		});
 
-		// We need to focus note only when active note have been changed
+		// We need to focus note only when active note or noteIds have been changed
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [activeNoteId]);
+	}, [activeNoteId, noteIds]);
 
 	// Edge case fix. When we scroll to the last note, its content is a bit over scroll.
 	// The cause is difficult to debug, but the point is a notes after loading takes a space.
