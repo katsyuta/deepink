@@ -1,12 +1,9 @@
-import React, { FC, useEffect, useRef, useState } from 'react';
-import { WorkspaceEvents } from '@api/events/workspace';
+import React, { FC, useRef } from 'react';
 import { Box, Skeleton, Text, VStack } from '@chakra-ui/react';
 import { NotePreview } from '@components/NotePreview/NotePreview';
-import { INote, NoteId } from '@core/features/notes';
 import { getNoteTitle } from '@core/features/notes/utils';
 import { TELEMETRY_EVENT_NAME } from '@core/features/telemetry';
 import { getContextMenuCoords } from '@electron/requests/contextMenu/renderer';
-import { useEventBus, useNotesRegistry } from '@features/App/Workspace/WorkspaceProvider';
 import { useNoteContextMenu } from '@features/NotesContainer/NoteContextMenu/useNoteContextMenu';
 import { useTelemetryTracker } from '@features/telemetry';
 import { useNoteActions } from '@hooks/notes/useNoteActions';
@@ -18,10 +15,12 @@ import {
 	selectNoteIds,
 	selectSearch,
 } from '@state/redux/profiles/profiles';
-import { selectNotesView } from '@state/redux/profiles/selectors/view';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { useDebouncedCallback } from '@utils/debounce/useDebouncedCallback';
-import { isElementInViewport } from '@utils/dom/isElementInViewport';
+import { ScrollToOptions, useVirtualizer } from '@tanstack/react-virtual';
+
+import { useNotesData } from './useNotesData';
+import { useScrollToActiveNote } from './useScrollToActiveNote';
+
+export const scrollAlignment: ScrollToOptions['align'] = 'start';
 
 export type NotesListProps = {};
 
@@ -30,8 +29,6 @@ export const NotesList: FC<NotesListProps> = () => {
 
 	const updateNotes = useUpdateNotes();
 	const noteActions = useNoteActions();
-
-	const notesRegister = useNotesRegistry();
 
 	const activeNoteId = useWorkspaceSelector(selectActiveNoteId);
 	const noteIds = useWorkspaceSelector(selectNoteIds);
@@ -46,107 +43,30 @@ export const NotesList: FC<NotesListProps> = () => {
 	const parentRef = useRef<HTMLDivElement>(null);
 	const isActiveWorkspace = useIsActiveWorkspace();
 
+	// eslint-disable-next-line react-hooks/incompatible-library
 	const virtualizer = useVirtualizer({
 		enabled: isActiveWorkspace,
 		count: noteIds.length,
 		getScrollElement: () => parentRef.current,
-		estimateSize: () => 70,
+		estimateSize: () => 180,
 		overscan: 5,
 		useFlushSync: false,
 	});
 
 	const virtualNoteItems = virtualizer.getVirtualItems();
 
-	// Load notes
-	const [notesInViewport, setNotesInViewport] = useState<Record<NoteId, INote>>({});
-	const loadViewportNotes = useDebouncedCallback(
-		(noteIds: NoteId[]) => {
-			notesRegister.getById(noteIds).then((loadedNotes) => {
-				if (loadedNotes.length === 0) return;
-
-				setNotesInViewport(
-					Object.fromEntries(loadedNotes.map((note) => [note.id, note])),
-				);
-			});
-		},
-		{ wait: 10 },
-	);
-	useEffect(() => {
-		const ids = virtualNoteItems.map((i) => noteIds[i.index]);
-		if (ids.length === 0) return;
-
-		loadViewportNotes(ids);
-	}, [noteIds, virtualNoteItems, loadViewportNotes]);
-
-	// Update preview when note content changes
-	const eventBus = useEventBus();
-	useEffect(() => {
-		const update = (updatedNoteId: NoteId) => {
-			if (!notesInViewport[updatedNoteId]) return;
-
-			const ids = virtualNoteItems.map((i) => noteIds[i.index]);
-			if (ids.length === 0) return;
-
-			loadViewportNotes(ids);
-		};
-
-		const cleanupUpdated = eventBus.listen(WorkspaceEvents.NOTE_UPDATED, update);
-		const cleanupEdited = eventBus.listen(WorkspaceEvents.NOTE_EDITED, update);
-
-		return () => {
-			cleanupUpdated();
-			cleanupEdited();
-		};
-	}, [
-		eventBus,
-		notesRegister,
-		notesInViewport,
-		loadViewportNotes,
-		virtualNoteItems,
-		noteIds,
-	]);
+	const notesData = useNotesData({
+		noteIds: virtualNoteItems.map((i) => noteIds[i.index]),
+	});
 
 	// Scroll to active note
 	const activeNoteRef = useRef<HTMLDivElement | null>(null);
-	const lastScrolledNoteRef = useRef<{ id: string; isScrolled: boolean } | null>(null);
-	useEffect(() => {
-		if (!activeNoteId) return;
-		if (
-			lastScrolledNoteRef.current?.id === activeNoteId &&
-			lastScrolledNoteRef.current.isScrolled
-		)
-			return;
-
-		const noteIndex = noteIds.indexOf(activeNoteId);
-		if (noteIndex === -1) return;
-
-		// Scroll to the index to trigger loading for the missing note
-		if (!notesInViewport[activeNoteId]) {
-			virtualizer.scrollToIndex(noteIndex, { align: 'center' });
-			lastScrolledNoteRef.current = { id: activeNoteId, isScrolled: false };
-			return;
-		}
-
-		// Skip if active note is in viewport
-		if (activeNoteRef.current && isElementInViewport(activeNoteRef.current)) {
-			lastScrolledNoteRef.current = { id: activeNoteId, isScrolled: true };
-			return;
-		}
-
-		virtualizer.scrollToIndex(noteIndex, { align: 'center' });
-		lastScrolledNoteRef.current = { id: activeNoteId, isScrolled: true };
-	}, [activeNoteId, noteIds, notesInViewport, virtualizer]);
-
-	// Reset the scroll bar after a view change
-	const notesView = useWorkspaceSelector(selectNotesView);
-	useEffect(() => {
-		virtualizer.scrollToOffset(0);
-
-		if (activeNoteId) {
-			lastScrolledNoteRef.current = { id: activeNoteId, isScrolled: false };
-		}
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [notesView]);
+	useScrollToActiveNote({
+		virtualizer,
+		noteIds,
+		activeNoteId,
+		activeNoteRef,
+	});
 
 	// TODO: implement dragging and moving items
 	return (
@@ -185,14 +105,16 @@ export const NotesList: FC<NotesListProps> = () => {
 					>
 						{virtualNoteItems.map((virtualRow) => {
 							const id = noteIds[virtualRow.index];
-							const note = notesInViewport[id];
+							const isActive = id === activeNoteId;
 
+							const note = notesData[id];
 							if (!note)
 								return (
 									<Skeleton
 										key={id}
-										ref={virtualizer.measureElement}
+										ref={isActive ? activeNoteRef : undefined}
 										data-index={virtualRow.index}
+										data-loading
 										startColor="primary.100"
 										endColor="dim.400"
 										height="70px"
@@ -201,7 +123,6 @@ export const NotesList: FC<NotesListProps> = () => {
 								);
 
 							const date = note.createdTimestamp ?? note.updatedTimestamp;
-							const isActive = note.id === activeNoteId;
 
 							// TODO: get preview text from DB as prepared value
 							// TODO: show attachments
