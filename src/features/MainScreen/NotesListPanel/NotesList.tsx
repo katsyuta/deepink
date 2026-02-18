@@ -59,6 +59,7 @@ export const NotesList: FC<NotesListProps> = () => {
 		noteIds: virtualNoteItems.map((i) => noteIds[i.index]),
 	});
 
+	// TODO: add command to scroll a list to note id. Call this command by click note tab
 	// Scroll to active note
 	const activeNoteRef = useRef<HTMLDivElement | null>(null);
 	useScrollToActiveNote({

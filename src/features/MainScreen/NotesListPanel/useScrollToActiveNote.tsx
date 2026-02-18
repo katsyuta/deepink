@@ -1,11 +1,28 @@
 import React, { useEffect, useRef } from 'react';
+import { WorkspaceEvents } from '@api/events/workspace';
 import { NoteId } from '@core/features/notes';
+import { useEventBus } from '@features/App/Workspace/WorkspaceProvider';
+import { useImmutableCallback } from '@hooks/useImmutableCallback';
 import { useWorkspaceSelector } from '@state/redux/profiles/hooks';
+import { selectActiveTag, selectSearch } from '@state/redux/profiles/profiles';
 import { selectNotesView } from '@state/redux/profiles/selectors/view';
 import { Virtualizer } from '@tanstack/react-virtual';
 import { isElementInViewport } from '@utils/dom/isElementInViewport';
+import { joinCallbacks } from '@utils/react/joinCallbacks';
 
 import { scrollAlignment } from './NotesList';
+
+const useOnFiltersChange = (callback: () => void) => {
+	const notesView = useWorkspaceSelector(selectNotesView);
+	const activeTag = useWorkspaceSelector(selectActiveTag);
+	const search = useWorkspaceSelector(selectSearch);
+
+	const userCallback = useImmutableCallback(() => callback(), [callback]);
+
+	useEffect(() => {
+		userCallback();
+	}, [notesView, activeTag?.id, search, userCallback]);
+};
 
 export const useScrollToActiveNote = ({
 	virtualizer,
@@ -18,17 +35,13 @@ export const useScrollToActiveNote = ({
 	activeNoteId: NoteId | null;
 	activeNoteRef: React.RefObject<HTMLDivElement | null>;
 }) => {
-	// Reset the scroll bar after a view change
-	const notesView = useWorkspaceSelector(selectNotesView);
-	useEffect(() => {
+	// Reset the scroll once filters changed
+	useOnFiltersChange(() => {
 		virtualizer.scrollToOffset(0);
-
-		// We need to reset scroll only when notes view changes
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [notesView]);
+	});
 
 	const isScrollFixNeededRef = useRef(false);
-	useEffect(() => {
+	const scrollToActiveNote = useImmutableCallback(() => {
 		if (!activeNoteId) return;
 
 		const noteIndex = noteIds.indexOf(activeNoteId);
@@ -41,10 +54,14 @@ export const useScrollToActiveNote = ({
 		virtualizer.scrollToIndex(noteIndex, {
 			align: scrollAlignment,
 		});
+	}, [activeNoteId, activeNoteRef, noteIds, virtualizer]);
 
-		// We need to focus note only when active note or noteIds have been changed
+	useEffect(() => {
+		scrollToActiveNote();
+
+		// We need to focus note only when active note have been changed
 		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [activeNoteId, noteIds]);
+	}, [activeNoteId]);
 
 	// Edge case fix. When we scroll to the last note, its content is a bit over scroll.
 	// The cause is difficult to debug, but the point is a notes after loading takes a space.
@@ -66,5 +83,38 @@ export const useScrollToActiveNote = ({
 		virtualizer.scrollToIndex(index, {
 			align: scrollAlignment,
 		});
+	});
+
+	// Focus active note by changes in case it was in viewport
+	const wasActiveNoteInViewport = useRef(false);
+	const eventBus = useEventBus();
+	useEffect(() => {
+		if (activeNoteId === null) return;
+
+		const onNoteUpdated = (noteId: NoteId) => {
+			// virtualizer.getVirtualIndexes().find((index) => noteIds[index] === noteId);
+			if (noteId !== activeNoteId) return;
+			wasActiveNoteInViewport.current =
+				activeNoteRef.current !== null &&
+				isElementInViewport(activeNoteRef.current);
+		};
+
+		return joinCallbacks(
+			eventBus.listen(WorkspaceEvents.NOTE_UPDATED, onNoteUpdated),
+			eventBus.listen(WorkspaceEvents.NOTE_EDITED, onNoteUpdated),
+		);
+	}, [activeNoteId, activeNoteRef, eventBus]);
+
+	useEffect(() => {
+		if (activeNoteId === null) return;
+
+		if (!wasActiveNoteInViewport.current) return;
+
+		const isActiveNoteInViewport =
+			activeNoteRef.current !== null && isElementInViewport(activeNoteRef.current);
+		if (isActiveNoteInViewport) return;
+
+		wasActiveNoteInViewport.current = false;
+		scrollToActiveNote();
 	});
 };
