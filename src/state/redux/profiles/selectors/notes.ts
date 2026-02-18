@@ -49,20 +49,6 @@ export const selectSearch = createWorkspaceSelector(
 	},
 );
 
-export const selectActiveNote = createWorkspaceSelector(
-	[selectWorkspaceRoot],
-	(workspace) => {
-		if (!workspace) return null;
-
-		const { activeNote } = workspace;
-		if (!activeNote) return null;
-
-		const { openedNotes } = workspace;
-
-		return openedNotes.find((note) => note.id === activeNote) ?? null;
-	},
-);
-
 export const selectRecentlyClosedNotes = createWorkspaceSelector(
 	[selectWorkspaceRoot],
 	(workspace) => {
