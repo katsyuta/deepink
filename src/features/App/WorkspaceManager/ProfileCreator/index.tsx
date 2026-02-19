@@ -109,12 +109,12 @@ export const ProfileCreator: FC<ProfileCreatorProps> = ({
 	// Set focus to the input
 	useEffect(() => {
 		const hasProfileName = profileNameInputRef.current?.value;
-		if (hasProfileName) {
-			passwordInputRef.current?.focus();
+		if (!hasProfileName) {
+			profileNameInputRef.current?.focus();
 			return;
 		}
 
-		profileNameInputRef.current?.focus();
+		passwordInputRef.current?.focus();
 	}, []);
 
 	const noPasswordDialogState = useDisclosure();
