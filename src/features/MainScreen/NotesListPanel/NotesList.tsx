@@ -108,7 +108,7 @@ export const NotesList: FC<NotesListProps> = () => {
 							const id = noteIds[virtualRow.index];
 							const isActive = id === activeNoteId;
 
-							const note = notesData[id];
+							const note = notesData.get(id);
 							if (!note)
 								return (
 									<Skeleton
