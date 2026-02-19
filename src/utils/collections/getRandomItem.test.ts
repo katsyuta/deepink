@@ -6,8 +6,8 @@ beforeEach(() => {
 
 const collection = ['Apple', 'Banana', 'Watermelon', 'Carrot', 'Eggplant'];
 
-test('Returns undefined for empty collection', () => {
-	expect(getRandomItem([])).toBeUndefined();
+test('Throw error if the collection is empty', () => {
+	expect(() => getRandomItem([])).toThrowError();
 });
 
 test('Returns the value for collection with one item', () => {
