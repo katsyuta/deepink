@@ -1,9 +1,10 @@
-import React, { FC, useEffect, useRef } from 'react';
-import { Box, Text, VStack } from '@chakra-ui/react';
+import React, { FC, useRef } from 'react';
+import { Box, Skeleton, Text, VStack } from '@chakra-ui/react';
 import { NotePreview } from '@components/NotePreview/NotePreview';
 import { getNoteTitle } from '@core/features/notes/utils';
 import { TELEMETRY_EVENT_NAME } from '@core/features/telemetry';
 import { getContextMenuCoords } from '@electron/requests/contextMenu/renderer';
+import { useNoteContextMenu } from '@features/NotesContainer/NoteContextMenu/useNoteContextMenu';
 import { useTelemetryTracker } from '@features/telemetry';
 import { useNoteActions } from '@hooks/notes/useNoteActions';
 import { useUpdateNotes } from '@hooks/notes/useUpdateNotes';
@@ -11,13 +12,15 @@ import { useIsActiveWorkspace } from '@hooks/useIsActiveWorkspace';
 import { useWorkspaceSelector } from '@state/redux/profiles/hooks';
 import {
 	selectActiveNoteId,
-	selectNotes,
+	selectNoteIds,
 	selectSearch,
 } from '@state/redux/profiles/profiles';
-import { useVirtualizer } from '@tanstack/react-virtual';
-import { isElementInViewport } from '@utils/dom/isElementInViewport';
+import { ScrollToOptions, useVirtualizer } from '@tanstack/react-virtual';
 
-import { useNoteContextMenu } from '../../NotesContainer/NoteContextMenu/useNoteContextMenu';
+import { useNotesData } from './useNotesData';
+import { useScrollToActiveNote } from './useScrollToActiveNote';
+
+export const scrollAlignment: ScrollToOptions['align'] = 'start';
 
 export type NotesListProps = {};
 
@@ -28,7 +31,7 @@ export const NotesList: FC<NotesListProps> = () => {
 	const noteActions = useNoteActions();
 
 	const activeNoteId = useWorkspaceSelector(selectActiveNoteId);
-	const notes = useWorkspaceSelector(selectNotes);
+	const noteIds = useWorkspaceSelector(selectNoteIds);
 
 	const search = useWorkspaceSelector(selectSearch);
 
@@ -39,33 +42,32 @@ export const NotesList: FC<NotesListProps> = () => {
 
 	const parentRef = useRef<HTMLDivElement>(null);
 	const isActiveWorkspace = useIsActiveWorkspace();
+
+	// eslint-disable-next-line react-hooks/incompatible-library
 	const virtualizer = useVirtualizer({
 		enabled: isActiveWorkspace,
-		count: notes.length,
+		count: noteIds.length,
 		getScrollElement: () => parentRef.current,
-		estimateSize: () => 70,
+		estimateSize: () => 180,
 		overscan: 5,
+		useFlushSync: false,
 	});
 
-	const items = virtualizer.getVirtualItems();
+	const virtualNoteItems = virtualizer.getVirtualItems();
 
+	const notesData = useNotesData({
+		noteIds: virtualNoteItems.map((i) => noteIds[i.index]),
+	});
+
+	// TODO: add command to scroll a list to note id. Call this command by click note tab
 	// Scroll to active note
 	const activeNoteRef = useRef<HTMLDivElement | null>(null);
-	useEffect(() => {
-		if (!activeNoteId) return;
-
-		// Skip if active note is in viewport
-		if (activeNoteRef.current !== null && isElementInViewport(activeNoteRef.current))
-			return;
-
-		const noteIndex = notes.findIndex((note) => note.id === activeNoteId);
-		if (noteIndex === -1) return;
-
-		virtualizer.scrollToIndex(noteIndex, { align: 'start' });
-
-		// We only need scroll to active note once by its change
-		// eslint-disable-next-line react-hooks/exhaustive-deps
-	}, [activeNoteId]);
+	useScrollToActiveNote({
+		virtualizer,
+		noteIds,
+		activeNoteId,
+		activeNoteRef,
+	});
 
 	// TODO: implement dragging and moving items
 	return (
@@ -79,7 +81,7 @@ export const NotesList: FC<NotesListProps> = () => {
 				userSelect: 'none',
 			}}
 		>
-			{notes.length === 0 ? (
+			{noteIds.length === 0 ? (
 				<Text pos="relative" top="40%">
 					Nothing added yet
 				</Text>
@@ -95,19 +97,33 @@ export const NotesList: FC<NotesListProps> = () => {
 				>
 					<VStack
 						sx={{
-							position: 'absolute',
 							width: '100%',
 							top: 0,
 							left: 0,
-							transform: `translateY(${items[0]?.start ?? 0}px)`,
+							marginTop: `${virtualNoteItems[0]?.start ?? 0}px`,
 							gap: '4px',
 						}}
 					>
-						{virtualizer.getVirtualItems().map((virtualRow) => {
-							const note = notes[virtualRow.index];
+						{virtualNoteItems.map((virtualRow) => {
+							const id = noteIds[virtualRow.index];
+							const isActive = id === activeNoteId;
+
+							const note = notesData.get(id);
+							if (!note)
+								return (
+									<Skeleton
+										key={id}
+										ref={isActive ? activeNoteRef : undefined}
+										data-index={virtualRow.index}
+										data-loading
+										startColor="primary.100"
+										endColor="dim.400"
+										height="70px"
+										w="100%"
+									/>
+								);
 
 							const date = note.createdTimestamp ?? note.updatedTimestamp;
-							const isActive = note.id === activeNoteId;
 
 							// TODO: get preview text from DB as prepared value
 							// TODO: show attachments

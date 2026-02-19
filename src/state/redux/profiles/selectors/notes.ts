@@ -9,10 +9,13 @@ export const selectWorkspaceName = createWorkspaceSelector(
 	({ id, name }) => ({ id, name }),
 );
 
-export const selectNotes = createWorkspaceSelector([selectWorkspaceRoot], (workspace) => {
-	if (!workspace) return [];
-	return workspace.notes;
-});
+export const selectNoteIds = createWorkspaceSelector(
+	[selectWorkspaceRoot],
+	(workspace) => {
+		if (!workspace) return [];
+		return workspace.noteIds;
+	},
+);
 
 export const selectOpenedNotes = createWorkspaceSelector(
 	[selectWorkspaceRoot],
@@ -26,16 +29,6 @@ export const selectIsNoteOpened = (noteId: string) =>
 	createWorkspaceSelector([selectWorkspaceRoot], (workspace) => {
 		if (!workspace) return false;
 		return workspace.openedNotes.some((note) => note.id === noteId);
-	});
-
-export const selectNote = (noteId: string | null) =>
-	createWorkspaceSelector([selectWorkspaceRoot], (workspace) => {
-		if (!workspace) return null;
-		if (!noteId) return null;
-
-		const { notes } = workspace;
-
-		return notes.find((note) => note.id === noteId) ?? null;
 	});
 
 export const selectActiveNoteId = createWorkspaceSelector(
@@ -53,20 +46,6 @@ export const selectSearch = createWorkspaceSelector(
 		if (!workspace) return '';
 
 		return workspace.search;
-	},
-);
-
-export const selectActiveNote = createWorkspaceSelector(
-	[selectWorkspaceRoot],
-	(workspace) => {
-		if (!workspace) return null;
-
-		const { activeNote } = workspace;
-		if (!activeNote) return null;
-
-		const { notes } = workspace;
-
-		return notes.find((note) => note.id === activeNote) ?? null;
 	},
 );
 
