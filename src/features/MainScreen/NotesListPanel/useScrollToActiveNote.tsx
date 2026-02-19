@@ -92,7 +92,6 @@ export const useScrollToActiveNote = ({
 		if (activeNoteId === null) return;
 
 		const onNoteUpdated = (noteId: NoteId) => {
-			// virtualizer.getVirtualIndexes().find((index) => noteIds[index] === noteId);
 			if (noteId !== activeNoteId) return;
 			wasActiveNoteInViewport.current =
 				activeNoteRef.current !== null &&
