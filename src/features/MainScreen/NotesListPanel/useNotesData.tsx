@@ -45,7 +45,6 @@ export const useNotesData = ({ noteIds }: { noteIds: NoteId[] }) => {
 	useEffect(() => {
 		const onNoteUpdated = (noteId: NoteId) => {
 			if (notesData.has(noteId)) {
-				notesData.delete([noteId]);
 				loadNotesData();
 			}
 		};
