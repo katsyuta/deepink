@@ -1,4 +1,4 @@
-import React, { createContext, FC, useEffect, useMemo, useRef } from 'react';
+import React, { createContext, FC, useMemo, useRef } from 'react';
 import {
 	buildProxiedInstance,
 	FeatureImplementation,
@@ -104,7 +104,10 @@ export const TagsTree: FC<ITagsListProps> = ({
 		},
 		instanceBuilder: buildProxiedInstance,
 		dataLoader: {
-			getItem: (itemId) => tags[itemId],
+			getItem: (itemId) => {
+				console.trace();
+				return tags[itemId];
+			},
 			getChildren: (itemId) => tags[itemId].children ?? [],
 		},
 		canReorder: true,
@@ -118,9 +121,14 @@ export const TagsTree: FC<ITagsListProps> = ({
 	});
 
 	// Rebuild tree by changes
-	useEffect(() => {
+	// We need rebuild the tree before rendering child components,
+	// otherwise they may use a stale tree that is out of sync with the latest tags list
+	const prevTagsRef = useRef(tags);
+	if (prevTagsRef.current !== tags) {
+		prevTagsRef.current = tags;
+
 		tree.rebuildTree();
-	}, [tags, tree]);
+	}
 
 	return (
 		<TagsListContext value={context}>
