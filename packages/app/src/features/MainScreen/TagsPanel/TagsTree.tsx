@@ -104,10 +104,7 @@ export const TagsTree: FC<ITagsListProps> = ({
 		},
 		instanceBuilder: buildProxiedInstance,
 		dataLoader: {
-			getItem: (itemId) => {
-				console.trace();
-				return tags[itemId];
-			},
+			getItem: (itemId) => tags[itemId],
 			getChildren: (itemId) => tags[itemId].children ?? [],
 		},
 		canReorder: true,
