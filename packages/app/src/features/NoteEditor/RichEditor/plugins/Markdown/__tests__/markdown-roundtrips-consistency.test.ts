@@ -6,15 +6,21 @@ import {
 	$convertFromMarkdownString,
 	$convertToMarkdownString,
 	$serializeAsMarkdownAST,
+	markdownProcessor,
 	parseMarkdownToAST,
 } from '../markdownParser';
 import {
 	detailsWithSummary,
 	formattedLine,
+	formattingInList,
+	formattingInQuote,
+	formattingInTable,
 	mixedList,
 	nestedQuote,
 	postWithHeaders,
+	richFormatting,
 	simpleCode,
+	simpleFormatting,
 	simpleQuote,
 	simpleTable,
 	unsupportedFeatures,
@@ -25,11 +31,58 @@ import {
 	updateEditorState,
 } from './utils';
 
+test('Markdown parser round-trips', () => {
+	const ast = parseMarkdownToAST(richFormatting);
+	const out = markdownProcessor.stringify(ast);
+
+	expect(normalizeMarkdownTree(parseMarkdownToAST(out))).toEqual(
+		normalizeMarkdownTree(ast),
+	);
+});
+
 describe('Markdown-Lexical-Markdown round-trips must be consistent on AST level', () => {
 	const cases = [
 		{
+			title: 'Bold node inside bold node',
+			markdown: '**foo __bar__ baz**',
+			inconsistentAST: true,
+		},
+		{
+			title: 'Inline code',
+			markdown: 'Text with `code`',
+		},
+		{
+			title: 'Inline code with formatting',
+			markdown: 'Text with ***~~`formatted code`~~***',
+		},
+		{
+			title: 'Rich formatting',
+			markdown: richFormatting,
+		},
+		{
 			title: 'Plain list',
 			markdown: '- foo\n  - bar\n  - baz',
+		},
+		{
+			title: 'Simple formatting',
+			markdown: simpleFormatting,
+		},
+		{
+			title: 'Header with formatting',
+			markdown:
+				'### *All header is italic, **something bold**, ~~strikethrough~~, `inline code`*',
+		},
+		{
+			title: 'List with formatting',
+			markdown: formattingInList,
+		},
+		{
+			title: 'Quote with formatting',
+			markdown: formattingInQuote,
+		},
+		{
+			title: 'Table with formatting',
+			markdown: formattingInTable,
 		},
 		{
 			title: 'List item with inline elements',
@@ -111,7 +164,7 @@ describe('Markdown-Lexical-Markdown round-trips must be consistent on AST level'
 		},
 	];
 
-	cases.forEach(({ title, markdown: sourceText }) =>
+	cases.forEach(({ title, markdown: sourceText, inconsistentAST }) =>
 		test(title, async () => {
 			const { editor, destroy } = createLexicalEditorInstance();
 			onTestFinished(destroy);
@@ -120,11 +173,23 @@ describe('Markdown-Lexical-Markdown round-trips must be consistent on AST level'
 				$convertFromMarkdownString(sourceText);
 			});
 
-			expect(
-				editor.read(() => normalizeMarkdownTree($serializeAsMarkdownAST())),
-			).toMatchObject(normalizeMarkdownTree(parseMarkdownToAST(sourceText)));
+			// Skip AST equality check for cases where AST may be optimized
+			// Even in that cases the source and output must be equal visually
+			if (!inconsistentAST) {
+				expect(
+					editor.read(() => normalizeMarkdownTree($serializeAsMarkdownAST())),
+				).toMatchObject(normalizeMarkdownTree(parseMarkdownToAST(sourceText)));
+			}
 
-			expect(editor.read(() => $convertToMarkdownString())).toMatchSnapshot();
+			const out = editor.read(() => $convertToMarkdownString());
+			expect(out).toMatchSnapshot();
+
+			// Parse markdown
+			await updateEditorState(editor, () => {
+				$convertFromMarkdownString(out);
+			});
+
+			expect(editor.read(() => $convertToMarkdownString())).toBe(out);
 		}),
 	);
 });

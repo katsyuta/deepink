@@ -5,16 +5,17 @@ import {
 	$createTextNode,
 	$getRoot,
 	$isTextNode,
-	IS_CODE,
 	LexicalNode,
+	TextFormatType,
+	TextNode,
 } from 'lexical';
-import { Content, Root, RootContent } from 'mdast';
+import { Content, type Root } from 'mdast';
 import remarkGfm from 'remark-gfm';
 import remarkParse from 'remark-parse';
 import remarkStringify from 'remark-stringify';
-import { Plugin, unified } from 'unified';
+import { unified } from 'unified';
 import { u } from 'unist-builder';
-import { CONTINUE, SKIP, visit } from 'unist-util-visit';
+import { TextFormat } from '@features/NoteEditor/EditorPanel';
 import { $createCodeNode } from '@lexical/code';
 import { $createLinkNode } from '@lexical/link';
 import { $createListItemNode, $createListNode, ListType } from '@lexical/list';
@@ -29,67 +30,10 @@ import {
 
 import { $createImageNode } from '../Image/ImageNode';
 import { convertLexicalNodeToMarkdownNode } from './convertLexicalNodeToMarkdownNode';
-import { $createFormattingNode } from './nodes/FormattingNode';
+import { createSyncContext } from './createSyncContext';
 import { $createRawNode } from './nodes/RawNode';
-
-const remarkPreserveBlankLines: Plugin<[], Root> = () => {
-	const ignoredNodeTypes = new Set<string>([
-		'table',
-		'tableCell',
-		'tableRow',
-	] satisfies RootContent['type'][]);
-
-	return (tree: Root) => {
-		const skipNodes = new Set<unknown>();
-
-		visit(tree, (node) => {
-			// Skip nodes with no nested elements
-			if (!('children' in node)) return SKIP;
-
-			// Skip ignored node types
-			if (ignoredNodeTypes.has(node.type)) return SKIP;
-
-			// Skip already handled nodes
-			if (skipNodes.has(node)) return SKIP;
-
-			const newChildren: RootContent[] = [];
-			for (let i = 0; i < node.children.length; i++) {
-				const current = node.children[i];
-				const next = node.children[i + 1];
-
-				// Collect its own children
-				newChildren.push(current);
-
-				// Add empty lines to preserve
-				if (next && current.position && next.position) {
-					const lineGap = next.position.start.line - current.position.end.line;
-					// lineGap === 2 means exactly one blank line, 3 means two, etc.
-					const blankLineCount = lineGap - 1;
-
-					for (let b = 0; b < blankLineCount; b++) {
-						const line = current.position.end.line + 1 + b;
-						const emptyLine = {
-							type: 'paragraph',
-							children: [],
-							// TODO: add tests to verify position are correct in complex cases
-							position: {
-								start: { line, column: 1, offset: 0 },
-								end: { line, column: 1, offset: 0 },
-							},
-						} as RootContent;
-
-						newChildren.push(emptyLine);
-						skipNodes.add(emptyLine);
-					}
-				}
-			}
-
-			node.children = newChildren;
-
-			return CONTINUE;
-		});
-	};
-};
+import { liftFormattingNodes } from './remark/remarkLiftFormatting';
+import { remarkPreserveBlankLines } from './remark/remarkPreserveBlankLines';
 
 export const markdownProcessor = unified()
 	.use(remarkParse)
@@ -131,31 +75,51 @@ export const $wrapWithParagraph = (children: LexicalNode[]) => {
 	return p;
 };
 
+const $setTextNodeFormat = (node: TextNode, formats: Iterable<TextFormatType>) => {
+	for (const format of formats) {
+		node.toggleFormat(format);
+	}
+};
+
+/**
+ * MDAST node type to Lexical text format
+ */
+const textFormattingMap = {
+	emphasis: 'italic',
+	strong: 'bold',
+	delete: 'strikethrough',
+} satisfies Record<string, TextFormat>;
+
 export const $convertFromMarkdownString = (rawMarkdown: string) => {
 	const mdTree = parseMarkdownToAST(rawMarkdown);
 
-	function convertToMarkdownNode(node: Content): LexicalNode {
+	const textFormatContext = createSyncContext<Set<TextFormat>>(new Set());
+	function convertToMarkdownNode(node: Content): LexicalNode[] {
 		switch (node.type) {
 			case 'text': {
-				return $createTextNode(node.value);
+				const t = $createTextNode(node.value);
+				$setTextNodeFormat(t, textFormatContext.get());
+				return [t];
 			}
 			case 'paragraph': {
 				const paragraph = $createParagraphNode();
 				paragraph.append(...convertToMarkdownNodes(node.children));
 
-				return paragraph;
+				return [paragraph];
 			}
 			case 'image': {
-				return $createImageNode({
-					src: node.url,
-					altText: node.alt || '',
-				});
+				return [
+					$createImageNode({
+						src: node.url,
+						altText: node.alt || '',
+					}),
+				];
 			}
 			case 'heading': {
 				const heading = $createHeadingNode(`h${node.depth}`);
 				heading.append(...convertToMarkdownNodes(node.children));
 
-				return heading;
+				return [heading];
 			}
 			case 'list': {
 				let listType: ListType = 'bullet';
@@ -172,7 +136,7 @@ export const $convertFromMarkdownString = (rawMarkdown: string) => {
 				const list = $createListNode(listType);
 				list.append(...convertToMarkdownNodes(node.children));
 
-				return list;
+				return [list];
 			}
 			case 'listItem': {
 				const listItem = $createListItemNode(node.checked ?? undefined);
@@ -180,29 +144,29 @@ export const $convertFromMarkdownString = (rawMarkdown: string) => {
 					$wrapWithParagraph(convertToMarkdownNodes(node.children)),
 				);
 
-				return listItem;
+				return [listItem];
 			}
 			case 'link': {
 				const link = $createLinkNode(node.url, { title: node.title });
 				link.append(...convertToMarkdownNodes(node.children));
 
-				return link;
+				return [link];
 			}
 			case 'blockquote': {
 				const quote = $createQuoteNode();
 				quote.append(...convertToMarkdownNodes(node.children));
 
-				return quote;
+				return [quote];
 			}
 			case 'table': {
 				const table = $createTableNode();
 				table.append(...convertToMarkdownNodes(node.children));
-				return table;
+				return [table];
 			}
 			case 'tableRow': {
 				const tableRow = $createTableRowNode();
 				tableRow.append(...convertToMarkdownNodes(node.children));
-				return tableRow;
+				return [tableRow];
 			}
 			case 'tableCell': {
 				const tableCell = $createTableCellNode(TableCellHeaderStates.NO_STATUS);
@@ -211,55 +175,47 @@ export const $convertFromMarkdownString = (rawMarkdown: string) => {
 				p.append(...convertToMarkdownNodes(node.children));
 				tableCell.append(p);
 
-				return tableCell;
+				return [tableCell];
 			}
 			case 'code': {
 				const code = $createCodeNode(node.lang);
 				code.append($createTextNode(node.value));
 
-				return code;
+				return [code];
 			}
 			case 'inlineCode': {
 				const text = $createTextNode(node.value);
-				text.setFormat(IS_CODE);
-				return text;
+				$setTextNodeFormat(text, [...textFormatContext.get(), 'code']);
+				return [text];
 			}
-			case 'emphasis': {
-				const format = $createFormattingNode({ tag: 'em' });
-				format.append(...convertToMarkdownNodes(node.children));
-
-				return format;
-			}
-			case 'strong': {
-				const format = $createFormattingNode({ tag: 'b' });
-				format.append(...convertToMarkdownNodes(node.children));
-
-				return format;
-			}
+			// TODO: handle sub/super/etc
+			case 'emphasis':
+			case 'strong':
 			case 'delete': {
-				const format = $createFormattingNode({ tag: 'del' });
-				format.append(...convertToMarkdownNodes(node.children));
-
-				return format;
+				return textFormatContext.use(
+					textFormatContext
+						.get()
+						.union(new Set([textFormattingMap[node.type]])),
+					() => convertToMarkdownNodes(node.children),
+				);
 			}
 			case 'break': {
-				return $createLineBreakNode();
+				return [$createLineBreakNode()];
 			}
 			case 'thematicBreak': {
-				const format = $createHorizontalRuleNode();
-				return format;
+				return [$createHorizontalRuleNode()];
 			}
 		}
 
 		const rawNode = $createRawNode();
 		rawNode.append($createTextNode(dumpMarkdownNode(node)));
-		return rawNode;
+		return [rawNode];
 	}
 
 	function convertToMarkdownNodes(mdTree: Content[]): LexicalNode[] {
 		const lexicalTree: LexicalNode[] = [];
 		for (const mdNode of mdTree) {
-			lexicalTree.push(convertToMarkdownNode(mdNode));
+			lexicalTree.push(...convertToMarkdownNode(mdNode));
 		}
 
 		return lexicalTree;
@@ -281,9 +237,14 @@ export const $convertFromMarkdownString = (rawMarkdown: string) => {
 export const $serializeAsMarkdownAST = () => {
 	const rootNode = $getRoot();
 	const children = rootNode.getChildren();
-	return u('root', {
+
+	const tree = u('root', {
 		children: children.map(convertLexicalNodeToMarkdownNode),
 	}) satisfies Root;
+
+	liftFormattingNodes(tree);
+
+	return tree;
 };
 
 export const $convertToMarkdownString = () => {

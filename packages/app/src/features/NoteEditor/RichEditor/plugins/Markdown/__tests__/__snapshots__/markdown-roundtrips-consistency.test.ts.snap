@@ -1,5 +1,10 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`Markdown-Lexical-Markdown round-trips must be consistent on AST level > Bold node inside bold node 1`] = `
+"**foo bar baz**
+"
+`;
+
 exports[`Markdown-Lexical-Markdown round-trips must be consistent on AST level > Check list with all checked items 1`] = `
 "- [x] foo
   - [x] bar
@@ -38,6 +43,11 @@ exports[`Markdown-Lexical-Markdown round-trips must be consistent on AST level >
 "
 `;
 
+exports[`Markdown-Lexical-Markdown round-trips must be consistent on AST level > Header with formatting 1`] = `
+"### *All header is italic, **something bold**, ~~strikethrough~~, \`inline code\`*
+"
+`;
+
 exports[`Markdown-Lexical-Markdown round-trips must be consistent on AST level > Image 1`] = `
 "![Alt text](https://url)
 "
@@ -45,6 +55,16 @@ exports[`Markdown-Lexical-Markdown round-trips must be consistent on AST level >
 
 exports[`Markdown-Lexical-Markdown round-trips must be consistent on AST level > Image wrapped by link 1`] = `
 "[![Alt text](https://url)](proto://url2 "Link title")
+"
+`;
+
+exports[`Markdown-Lexical-Markdown round-trips must be consistent on AST level > Inline code 1`] = `
+"Text with \`code\`
+"
+`;
+
+exports[`Markdown-Lexical-Markdown round-trips must be consistent on AST level > Inline code with formatting 1`] = `
+"Text with ***~~\`formatted code\`~~***
 "
 `;
 
@@ -62,6 +82,15 @@ exports[`Markdown-Lexical-Markdown round-trips must be consistent on AST level >
 "- item 1 [foo](...) bar
   - item 1-2
   - item 2-2
+"
+`;
+
+exports[`Markdown-Lexical-Markdown round-trips must be consistent on AST level > List with formatting 1`] = `
+"- *All text can be italic, something additionally can be **bold**, ~~strikethrough~~, or **~~bold AND strikethrough~~*** | plain text and ~~deleted~~
+- Plain text
+- *Italic*
+- **Bold**
+- ~~Delete~~
 "
 `;
 
@@ -106,11 +135,30 @@ exports[`Markdown-Lexical-Markdown round-trips must be consistent on AST level >
 "
 `;
 
+exports[`Markdown-Lexical-Markdown round-trips must be consistent on AST level > Quote with formatting 1`] = `
+"> *All text can be italic, something additionally can be **bold**, ~~strikethrough~~, or **~~bold AND strikethrough~~*** | plain text and ~~deleted~~
+> Plain text
+> *Italic*
+> **Bold**
+> ~~Delete~~
+"
+`;
+
+exports[`Markdown-Lexical-Markdown round-trips must be consistent on AST level > Rich formatting 1`] = `
+"*All text can be italic, something additionally can be **bold**, ~~strikethrough~~, or **~~bold AND strikethrough~~***
+"
+`;
+
 exports[`Markdown-Lexical-Markdown round-trips must be consistent on AST level > Simple code 1`] = `
 "\`\`\`js
 const x = 42;
 console.log("Your number is", x ** x);
 \`\`\`
+"
+`;
+
+exports[`Markdown-Lexical-Markdown round-trips must be consistent on AST level > Simple formatting 1`] = `
+"Text may be **bold**, *italic*, ~~strikethrough~~.
 "
 `;
 
@@ -150,6 +198,14 @@ exports[`Markdown-Lexical-Markdown round-trips must be consistent on AST level >
 | One   | 1     |
 | Two   | 2     |
 | Three | 3     |
+"
+`;
+
+exports[`Markdown-Lexical-Markdown round-trips must be consistent on AST level > Table with formatting 1`] = `
+"| foo                                                                                                                    | bar                        |
+| ---------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| *All text can be italic, something additionally can be **bold**, ~~strikethrough~~, or **~~bold AND strikethrough~~*** | plain text and ~~deleted~~ |
+| **bold**                                                                                                               | *italic*                   |
 "
 `;
 
