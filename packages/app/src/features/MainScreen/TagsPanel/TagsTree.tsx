@@ -64,6 +64,22 @@ export type ITagsListProps = {
 	contextMenu: TagContextMenuCallbacks;
 };
 
+/**
+ * Rebuild the tree while rendering, before rendering child components,
+ * otherwise they may use a stale tree that is out of sync with the latest tags list
+ */
+const useRebuildTreeOnTagsChange = (
+	tree: { rebuildTree: () => void },
+	tags: Record<string, TagNode>,
+) => {
+	const prevTagsRef = useRef(tags);
+	if (prevTagsRef.current !== tags) {
+		prevTagsRef.current = tags;
+
+		tree.rebuildTree();
+	}
+};
+
 export const TagsTree: FC<ITagsListProps> = ({
 	tags,
 	activeTag,
@@ -118,14 +134,7 @@ export const TagsTree: FC<ITagsListProps> = ({
 	});
 
 	// Rebuild tree by changes
-	// We need rebuild the tree before rendering child components,
-	// otherwise they may use a stale tree that is out of sync with the latest tags list
-	const prevTagsRef = useRef(tags);
-	if (prevTagsRef.current !== tags) {
-		prevTagsRef.current = tags;
-
-		tree.rebuildTree();
-	}
+	useRebuildTreeOnTagsChange(tree, tags);
 
 	return (
 		<TagsListContext value={context}>
