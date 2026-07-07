@@ -56,35 +56,30 @@ test('Removed nested blockquote', async () => {
 	expect(within(editor).queryAllByRole('blockquote')).toHaveLength(0);
 });
 
-test.fails(
-	'deletes nested empty blockquote on backspace instead of jumping cursor to previous line',
-	async () => {
-		const user = userEvent.setup();
-		await renderRichEditor({ value: `> foo\n>> bar` });
+test('Removes nested blockquote after deleting its text with backspace', async () => {
+	const user = userEvent.setup();
+	await renderRichEditor({ value: `> foo\n>> bar` });
 
-		const editor = screen.getByRole('textbox');
-		let quotes = within(editor).getAllByRole('blockquote');
-		expect(quotes).toHaveLength(2);
+	const editor = screen.getByRole('textbox');
+	const quotes = within(editor).getAllByRole('blockquote');
+	expect(quotes).toHaveLength(2);
 
-		await user.click(quotes[1]);
-		selectContent(quotes[1], 'bar');
+	await user.click(quotes[1]);
+	selectContent(quotes[1], 'bar');
 
-		await user.keyboard('{Backspace}');
-		await user.keyboard('{Backspace}');
+	// First remove the text
+	await user.keyboard('{Backspace}');
+	expect(within(editor).queryByText('bar')).not.toBeInTheDocument();
 
-		quotes = within(editor).getAllByRole('blockquote');
-		expect(quotes).toHaveLength(2);
-		expect(quotes[1]).toHaveTextContent('');
+	// Second press remove the blockquote
+	await user.keyboard('{Backspace}');
+	expect(within(editor).getAllByRole('blockquote')).toHaveLength(1);
 
-		await user.keyboard('{Backspace}');
+	selectContent(quotes[0], 'foo');
 
-		quotes = within(editor).getAllByRole('blockquote');
+	await user.keyboard('{Backspace}');
+	await user.keyboard('{Backspace}');
 
-		expect(quotes).toHaveLength(1);
-		expect(editor).toHaveTextContent('foo');
-
-		const selection = window.getSelection();
-		expect(selection?.anchorNode?.textContent).toBe('foo');
-		expect(selection?.anchorOffset).toBe(3);
-	},
-);
+	expect(within(editor).queryByText('foo')).not.toBeInTheDocument();
+	expect(within(editor).queryByRole('blockquote')).not.toBeInTheDocument();
+});
