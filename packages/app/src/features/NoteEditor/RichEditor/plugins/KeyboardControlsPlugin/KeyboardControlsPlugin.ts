@@ -3,11 +3,13 @@ import {
 	$createParagraphNode,
 	$getSelection,
 	$isParagraphNode,
+	$isRangeSelection,
 	$isTextNode,
 	BaseSelection,
 	COMMAND_PRIORITY_LOW,
 	createCommand,
 	ElementNode,
+	KEY_BACKSPACE_COMMAND,
 	KEY_ENTER_COMMAND,
 } from 'lexical';
 import { $isCodeNode } from '@lexical/code-core';
@@ -91,6 +93,39 @@ export const KeyboardControlsPlugin = () => {
 						newParagraph.select();
 
 						return true;
+					},
+					COMMAND_PRIORITY_LOW,
+				),
+				editor.registerCommand(
+					KEY_BACKSPACE_COMMAND,
+					(event) => {
+						const selection = $getSelection();
+						if (!$isRangeSelection(selection) || !selection.isCollapsed())
+							return false;
+
+						// cursor must be start of string
+						if (selection.anchor.offset !== 0) return false;
+
+						const blockElement = $getParentOfTextOnEnd(selection);
+
+						if ($isQuoteNode(blockElement)) {
+							if (blockElement.getTextContentSize() !== 0) return false;
+
+							const sibling = blockElement.getPreviousSibling();
+							if (sibling) {
+								blockElement.remove();
+								sibling.selectEnd();
+							} else {
+								const paragraph = $createParagraphNode();
+								blockElement.replace(paragraph);
+								paragraph.select();
+							}
+
+							event.preventDefault();
+							return true;
+						}
+
+						return false;
 					},
 					COMMAND_PRIORITY_LOW,
 				),
