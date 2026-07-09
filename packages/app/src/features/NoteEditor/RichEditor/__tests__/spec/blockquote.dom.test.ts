@@ -4,7 +4,24 @@ import userEvent from '@testing-library/user-event';
 import { renderRichEditor } from '../utils/renderRichEditor';
 import { selectContent } from '../utils/utils';
 
-test('Blockquote is removed when backspace is pressed', async () => {
+test('Insert blockquote', async () => {
+	const richEditor = await renderRichEditor({ value: 'cat' });
+
+	const editor = screen.getByRole('textbox');
+	selectContent(editor, 'cat');
+	await richEditor.insert({ type: 'quote' });
+
+	expect(within(editor).getByRole('blockquote')).toHaveTextContent('cat');
+
+	selectContent(editor, 'cat');
+	await richEditor.insert({ type: 'quote' });
+
+	const quotes = within(editor).getAllByRole('blockquote');
+	expect(quotes).toHaveLength(2);
+	expect(quotes[1]).toHaveTextContent('cat');
+});
+
+test('Empty blockquote is removed when backspace is pressed', async () => {
 	const user = userEvent.setup();
 	await renderRichEditor({ value: '>' });
 
