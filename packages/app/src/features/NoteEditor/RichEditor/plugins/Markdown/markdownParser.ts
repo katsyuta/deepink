@@ -10,13 +10,14 @@ import {
 	TextNode,
 } from 'lexical';
 import { Content, type Root } from 'mdast';
+import { defaultHandlers } from 'mdast-util-to-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkParse from 'remark-parse';
 import remarkStringify from 'remark-stringify';
-import { unified } from 'unified';
+import { Processor, unified } from 'unified';
 import { u } from 'unist-builder';
 import { TextFormat } from '@features/NoteEditor/EditorPanel';
-import { $createCodeNode } from '@lexical/code';
+import { $createCodeNode } from '@lexical/code-core';
 import { $createLinkNode } from '@lexical/link';
 import { $createListItemNode, $createListNode, ListType } from '@lexical/list';
 import { $createHorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
@@ -33,25 +34,55 @@ import { convertLexicalNodeToMarkdownNode } from './convertLexicalNodeToMarkdown
 import { createSyncContext } from './createSyncContext';
 import { $createRawNode } from './nodes/RawNode';
 import { liftFormattingNodes } from './remark/remarkLiftFormatting';
-import { remarkPreserveBlankLines } from './remark/remarkPreserveBlankLines';
+import { fillGapsWithParagraphs } from './remark/remarkPreserveBlankLines';
 
 export const markdownProcessor = unified()
 	.use(remarkParse)
-	.use(remarkPreserveBlankLines)
 	.use(remarkGfm)
 	.use(remarkStringify, {
 		bullet: '-',
 		listItemIndent: 'one',
+		handlers: {
+			paragraph(node, parent, state, info) {
+				// Empty line will be added after that node anyway
+				// So empty paragraph converts to 1 empty line
+				if (node.children.length === 0) {
+					return '';
+				}
+
+				// In case paragraph is not empty, we fallback
+				// to default serializer
+				return defaultHandlers.paragraph(node, parent, state, info);
+			},
+		},
 		join: [
-			() => {
-				return 0;
+			(left, right) => {
+				// Join empty paragraphs with no empty lines between them
+				if (left.type === 'paragraph' && right.type === 'paragraph') {
+					const isLeftEmpty = left.children.length === 0;
+					const isRightEmpty = right.children.length === 0;
+
+					// Join only in case both nodes are empty
+					if (isLeftEmpty && isRightEmpty) return 0;
+
+					// Otherwise do not change standard behavior
+					return null;
+				}
+
+				return null;
 			},
 		],
 	})
-	.freeze();
+	.freeze() as unknown as Processor<Root, Root, Root, Root, string>;
 
 export const parseMarkdownToAST = (source: string) => {
-	return markdownProcessor.runSync(markdownProcessor.parse(source));
+	return markdownProcessor.runSync(
+		fillGapsWithParagraphs(markdownProcessor.parse(source)),
+	);
+};
+
+export const serializeMarkdownTree = (tree: Root) => {
+	return markdownProcessor.stringify(tree);
 };
 
 export const dumpMarkdownNode = (node: Content) => {
@@ -231,7 +262,12 @@ export const $convertFromMarkdownString = (rawMarkdown: string) => {
 
 	const rootNode = $getRoot();
 	rootNode.clear();
-	rootNode.append(...lexicalNodes);
+
+	if (lexicalNodes.length > 0) {
+		rootNode.append(...lexicalNodes);
+	} else {
+		rootNode.append($createParagraphNode());
+	}
 };
 
 export const $serializeAsMarkdownAST = () => {
