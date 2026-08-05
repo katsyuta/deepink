@@ -65,8 +65,10 @@ export type ITagsListProps = {
 };
 
 /**
- * Rebuild the tree while rendering, before rendering child components,
- * otherwise they may use a stale tree that is out of sync with the latest tags list
+ * Rebuilds the tree synchronously during render whenever the tags change.
+ *
+ * The tree must be rebuilt before rendering child components,
+ * otherwise, they may use a stale tree that is out of sync with the latest tags
  */
 const useRebuildTreeOnTagsChange = (
 	tree: { rebuildTree: () => void },
@@ -133,7 +135,7 @@ export const TagsTree: FC<ITagsListProps> = ({
 		],
 	});
 
-	// Rebuild tree by changes
+	// Rebuild tree
 	useRebuildTreeOnTagsChange(tree, tags);
 
 	return (
