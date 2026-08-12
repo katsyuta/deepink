@@ -102,30 +102,34 @@ export const KeyboardControlsPlugin = () => {
 						const selection = $getSelection();
 						if (!$isRangeSelection(selection) || !selection.isCollapsed())
 							return false;
-
-						// cursor must be start of string
+						// Cursor must be start of string
 						if (selection.anchor.offset !== 0) return false;
 
+						// Handel sequential deletion of nested quotes
 						const blockElement = $getParentOfTextOnEnd(selection);
+						if (!$isQuoteNode(blockElement)) return false;
 
-						if ($isQuoteNode(blockElement)) {
-							if (blockElement.getTextContentSize() !== 0) return false;
+						// Skip top-level quote
+						const parent = blockElement.getParent();
+						if (!$isQuoteNode(parent)) return false;
 
-							const sibling = blockElement.getPreviousSibling();
-							if (sibling) {
-								blockElement.remove();
-								sibling.selectEnd();
-							} else {
-								const paragraph = $createParagraphNode();
-								blockElement.replace(paragraph);
-								paragraph.select();
-							}
+						const children = blockElement.getChildren();
+						const index = blockElement.getIndexWithinParent();
 
-							event.preventDefault();
-							return true;
+						if (children.length > 0) {
+							parent.splice(index, 1, children);
+						} else {
+							blockElement.remove();
 						}
 
-						return false;
+						if (children[0]) {
+							children[0].selectStart();
+						} else {
+							parent.selectEnd();
+						}
+
+						event.preventDefault();
+						return true;
 					},
 					COMMAND_PRIORITY_LOW,
 				),
