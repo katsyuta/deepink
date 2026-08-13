@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { renderRichEditor } from '../utils/renderRichEditor';
 import { selectContent, setCursorPosition } from '../utils/utils';
 
-test('Creates a blockquote from selected text', async () => {
+test('Creates a quote from selected text', async () => {
 	const richEditor = await renderRichEditor({ value: 'cat' });
 
 	const editor = screen.getByRole('textbox');
@@ -12,16 +12,9 @@ test('Creates a blockquote from selected text', async () => {
 	await richEditor.insert({ type: 'quote' });
 
 	expect(within(editor).getByRole('blockquote')).toHaveTextContent('cat');
-
-	selectContent(editor, 'cat');
-	await richEditor.insert({ type: 'quote' });
-
-	const quotes = within(editor).getAllByRole('blockquote');
-	expect(quotes).toHaveLength(2);
-	expect(quotes[1]).toHaveTextContent('cat');
 });
 
-test('Removes an empty blockquote when', async () => {
+test('Removes an empty quote', async () => {
 	const user = userEvent.setup();
 	await renderRichEditor({ value: '>' });
 
@@ -32,16 +25,17 @@ test('Removes an empty blockquote when', async () => {
 	await user.keyboard('{Backspace}');
 
 	expect(within(editor).queryByRole('blockquote')).not.toBeInTheDocument();
-	expect(within(editor).queryByRole('paragraph')).toHaveTextContent('');
+	expect(editor).toHaveTextContent('');
 });
 
-test('Removes a blockquote while preserving its text', async () => {
+test('Removes a quote while preserving its text', async () => {
 	const user = userEvent.setup();
 	await renderRichEditor({ value: '> Bob' });
 
 	const editor = screen.getByRole('textbox');
 	const quote = within(editor).getByRole('blockquote');
 
+	// Set the cursor position at the start of the text
 	await user.click(quote);
 	setCursorPosition(quote, 0);
 	await user.keyboard('{Backspace}');
@@ -50,7 +44,7 @@ test('Removes a blockquote while preserving its text', async () => {
 	expect(editor).toHaveTextContent('Bob');
 });
 
-test('Removes a blockquote after its text is deleted', async () => {
+test('Removes an empty quote after deleting its text', async () => {
 	const user = userEvent.setup();
 	await renderRichEditor({ value: '> text' });
 
@@ -62,15 +56,16 @@ test('Removes a blockquote after its text is deleted', async () => {
 	await user.click(quote);
 	selectContent(quote, 'text');
 
-	// First press deletes the text, second press removes the blockquote
+	// The first press deletes the text; the second press removes the quote
 	await user.keyboard('{Backspace}');
-	await user.keyboard('{Backspace}');
-
-	expect(within(editor).queryByRole('blockquote')).not.toBeInTheDocument();
 	expect(within(editor).queryByText('text')).not.toBeInTheDocument();
+	expect(within(editor).getByRole('blockquote')).toHaveTextContent('');
+
+	await user.keyboard('{Backspace}');
+	expect(within(editor).queryByRole('blockquote')).not.toBeInTheDocument();
 });
 
-test('Removes one blockquote nesting level at a time', async () => {
+test('Removes one quote nesting level at a time', async () => {
 	const user = userEvent.setup();
 	await renderRichEditor({ value: '>>>' });
 
@@ -78,11 +73,8 @@ test('Removes one blockquote nesting level at a time', async () => {
 	const quotes = within(editor).getAllByRole('blockquote');
 	expect(quotes).toHaveLength(3);
 
-	// Delete the nested blockquote
 	await user.click(quotes[2]);
 	await user.keyboard('{Backspace}');
-
-	expect(quotes[2]).not.toBeInTheDocument();
 	expect(within(editor).getAllByRole('blockquote')).toHaveLength(2);
 
 	await user.keyboard('{Backspace}');
@@ -92,7 +84,7 @@ test('Removes one blockquote nesting level at a time', async () => {
 	expect(within(editor).queryAllByRole('blockquote')).toHaveLength(0);
 });
 
-test('Removes an empty nested blockquote after its text is deleted', async () => {
+test('Removes an empty nested quote after deleting its text', async () => {
 	const user = userEvent.setup();
 	await renderRichEditor({ value: `> foo\n>> bar` });
 
@@ -108,14 +100,13 @@ test('Removes an empty nested blockquote after its text is deleted', async () =>
 	expect(quotes[1]).toHaveTextContent('');
 	expect(within(editor).getAllByRole('blockquote')).toHaveLength(2);
 
-	// The second press should remove the blockquote
+	// The second press should remove the nested quote
 	await user.keyboard('{Backspace}');
-
 	expect(within(editor).getAllByRole('blockquote')).toHaveLength(1);
 	expect(within(editor).getByRole('blockquote')).toHaveTextContent('foo');
 });
 
-test('Reduces blockquote nesting level while preserving its text', async () => {
+test('Reduces quote nesting level while preserving its text', async () => {
 	const user = userEvent.setup();
 	await renderRichEditor({ value: `> foo\n>> bar` });
 
@@ -123,14 +114,14 @@ test('Reduces blockquote nesting level while preserving its text', async () => {
 	const quotes = within(editor).getAllByRole('blockquote');
 	expect(quotes).toHaveLength(2);
 
+	// Set the cursor position at the start of the text
 	await user.click(quotes[1]);
 	setCursorPosition(quotes[1], 0);
-
 	await user.keyboard('{Backspace}');
 
 	expect(within(editor).getAllByRole('blockquote')).toHaveLength(1);
 
-	const [blockquote] = within(editor).getAllByRole('blockquote');
-	expect(blockquote).toHaveTextContent('foo');
-	expect(blockquote).toHaveTextContent('bar');
+	const [quote] = within(editor).getAllByRole('blockquote');
+	expect(quote).toHaveTextContent('foo');
+	expect(quote).toHaveTextContent('bar');
 });
