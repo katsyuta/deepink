@@ -4,7 +4,6 @@ import {
 	$getSelection,
 	$hasAncestor,
 	$isBlockElementNode,
-	$isParagraphNode,
 	$isRangeSelection,
 	$isRootNode,
 	$isTextNode,
@@ -91,19 +90,6 @@ export const $wrapNodes = (createElement: (nodes: LexicalNode[]) => ElementNode)
 	const anchor = start.getNode();
 	if ($isRootNode(anchor)) {
 		// Handle case with empty editor state
-		// When a new note is initialized, an empty paragraph is created.
-		// Replace the empty paragraph with the element being created to avoid an unnecessary empty line.
-		const targetChild = anchor.getFirstChild();
-		if (
-			targetChild &&
-			$isParagraphNode(targetChild) &&
-			targetChild.getChildrenSize() === 0 &&
-			anchor.getChildrenSize() === 1
-		) {
-			targetChild.replace(createElement([]));
-			return;
-		}
-
 		const paragraph = $createParagraphNode();
 		anchor.append(paragraph);
 		paragraph.append(createElement([]));

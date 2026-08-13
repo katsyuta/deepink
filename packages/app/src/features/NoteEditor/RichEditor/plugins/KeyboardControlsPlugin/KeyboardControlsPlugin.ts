@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
 import {
 	$createParagraphNode,
+	$findMatchingParent,
 	$getSelection,
+	$isElementNode,
 	$isParagraphNode,
 	$isRangeSelection,
 	$isTextNode,
@@ -102,29 +104,36 @@ export const KeyboardControlsPlugin = () => {
 						const selection = $getSelection();
 						if (!$isRangeSelection(selection) || !selection.isCollapsed())
 							return false;
-						// Cursor must be start of string
 						if (selection.anchor.offset !== 0) return false;
 
-						// Handel sequential deletion of nested quotes
-						const blockElement = $getParentOfTextOnEnd(selection);
-						if (!$isQuoteNode(blockElement)) return false;
+						// Handle Backspace at the beginning of a quote: unwrap the quote or remove it if it is empty
+						const quoteNode = $getParentOfTextOnEnd(selection);
+						if (!$isQuoteNode(quoteNode)) return false;
 
-						// Skip top-level quote
-						const parent = blockElement.getParent();
-						if (!$isQuoteNode(parent)) return false;
+						// A quote can contain multiple lines, find the line containing the cursor
+						// Continue unwrapping the quote only when the cursor is in its first line,
+						// otherwise, let Lexical handle backspace
+						const cursorLine = $findMatchingParent(
+							selection.anchor.getNode(),
+							(node) => node.getParent() === quoteNode,
+						);
+						if (cursorLine && cursorLine !== quoteNode.getFirstChild())
+							return false;
 
-						const children = blockElement.getChildren();
-						const index = blockElement.getIndexWithinParent();
+						// Unwrap the quote, reducing its nesting level or removing it entirely
+						const parent = quoteNode.getParent();
+						if (!$isElementNode(parent)) return false;
 
+						const children = quoteNode.getChildren();
+						const index = quoteNode.getIndexWithinParent();
+
+						// Move the quote's children into its parent preserving their content
 						if (children.length > 0) {
 							parent.splice(index, 1, children);
-						} else {
-							blockElement.remove();
-						}
-
-						if (children[0]) {
 							children[0].selectStart();
 						} else {
+							// Empty quote - just remove it
+							quoteNode.remove();
 							parent.selectEnd();
 						}
 
