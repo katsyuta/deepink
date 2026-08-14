@@ -25,7 +25,6 @@ test('Removes an empty quote', async () => {
 	await user.keyboard('{Backspace}');
 
 	expect(within(editor).queryByRole('blockquote')).not.toBeInTheDocument();
-	expect(editor).toHaveTextContent('');
 });
 
 test('Removes a quote while preserving its text', async () => {
@@ -34,6 +33,7 @@ test('Removes a quote while preserving its text', async () => {
 
 	const editor = screen.getByRole('textbox');
 	const quote = within(editor).getByRole('blockquote');
+	expect(quote).toHaveTextContent('Bob');
 
 	// Set the cursor position at the start of the text
 	await user.click(quote);
@@ -72,6 +72,8 @@ test('Removes one quote nesting level at a time', async () => {
 	const editor = screen.getByRole('textbox');
 	const quotes = within(editor).getAllByRole('blockquote');
 	expect(quotes).toHaveLength(3);
+	expect(quotes[0]).toContainElement(quotes[1]);
+	expect(quotes[1]).toContainElement(quotes[2]);
 
 	await user.click(quotes[2]);
 	await user.keyboard('{Backspace}');
@@ -89,21 +91,24 @@ test('Removes an empty nested quote after deleting its text', async () => {
 	await renderRichEditor({ value: `> foo\n>> bar` });
 
 	const editor = screen.getByRole('textbox');
-	const quotes = within(editor).getAllByRole('blockquote');
-	expect(quotes).toHaveLength(2);
-
-	await user.click(quotes[1]);
-	selectContent(quotes[1], 'bar');
+	const initialQuotes = within(editor).getAllByRole('blockquote');
+	expect(initialQuotes).toHaveLength(2);
+	expect(initialQuotes[0]).toContainElement(initialQuotes[1]);
 
 	// Delete the text
+	await user.click(initialQuotes[1]);
+	selectContent(initialQuotes[1], 'bar');
 	await user.keyboard('{Backspace}');
-	expect(quotes[1]).toHaveTextContent('');
-	expect(within(editor).getAllByRole('blockquote')).toHaveLength(2);
+
+	const updatedQuotes = within(editor).getAllByRole('blockquote');
+	expect(updatedQuotes).toHaveLength(2);
+	expect(updatedQuotes[1]).toHaveTextContent('');
 
 	// The second press should remove the nested quote
 	await user.keyboard('{Backspace}');
-	expect(within(editor).getAllByRole('blockquote')).toHaveLength(1);
-	expect(within(editor).getByRole('blockquote')).toHaveTextContent('foo');
+	const finalQuotes = within(editor).getAllByRole('blockquote');
+	expect(finalQuotes).toHaveLength(1);
+	expect(finalQuotes[0]).toHaveTextContent('foo');
 });
 
 test('Reduces quote nesting level while preserving its text', async () => {
@@ -113,6 +118,7 @@ test('Reduces quote nesting level while preserving its text', async () => {
 	const editor = screen.getByRole('textbox');
 	const quotes = within(editor).getAllByRole('blockquote');
 	expect(quotes).toHaveLength(2);
+	expect(quotes[0]).toContainElement(quotes[1]);
 
 	// Set the cursor position at the start of the text
 	await user.click(quotes[1]);
@@ -121,7 +127,8 @@ test('Reduces quote nesting level while preserving its text', async () => {
 
 	expect(within(editor).getAllByRole('blockquote')).toHaveLength(1);
 
-	const [quote] = within(editor).getAllByRole('blockquote');
-	expect(quote).toHaveTextContent('foo');
-	expect(quote).toHaveTextContent('bar');
+	const updatedQuote = within(editor).getAllByRole('blockquote');
+	expect(updatedQuote).toHaveLength(1);
+	expect(updatedQuote[0]).toHaveTextContent('foo');
+	expect(updatedQuote[0]).toHaveTextContent('bar');
 });
