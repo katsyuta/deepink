@@ -107,8 +107,11 @@ export const KeyboardControlsPlugin = () => {
 						if (selection.anchor.offset !== 0) return false;
 
 						// Handle Backspace at the beginning of a quote: unwrap the quote or remove it if it is empty
-						const quoteNode = $getParentOfTextOnEnd(selection);
-						if (!$isQuoteNode(quoteNode)) return false;
+						const quoteNode = $findMatchingParent(
+							selection.anchor.getNode(),
+							$isQuoteNode,
+						);
+						if (!quoteNode) return false;
 
 						// A quote can contain multiple lines, find the line containing the cursor
 						// Continue unwrapping the quote only when the cursor is in its first line,
