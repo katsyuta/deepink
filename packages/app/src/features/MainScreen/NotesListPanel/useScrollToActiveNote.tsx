@@ -87,7 +87,6 @@ export const useScrollToActiveNote = ({
 
 	// Focus active note by changes in case it was in viewport
 	const wasActiveNoteInViewport = useRef(false);
-	const skipScrollRef = useRef<boolean>(false);
 	const eventBus = useEventBus();
 	useEffect(() => {
 		if (activeNoteId === null) return;
@@ -100,14 +99,8 @@ export const useScrollToActiveNote = ({
 		};
 
 		return joinCallbacks(
-			eventBus.listen(WorkspaceEvents.NOTE_META_UPDATED, (noteId) => {
-				if (noteId === activeNoteId) skipScrollRef.current = true;
-			}),
-			eventBus.listen(WorkspaceEvents.NOTE_UPDATED, (noteId) => {
-				if (skipScrollRef.current) {
-					skipScrollRef.current = false;
-					return;
-				}
+			eventBus.listen(WorkspaceEvents.NOTE_UPDATED, ({ noteId, reason }) => {
+				if (reason === 'pin') return;
 				onNoteUpdated(noteId);
 			}),
 			eventBus.listen(WorkspaceEvents.NOTE_EDITED, onNoteUpdated),
