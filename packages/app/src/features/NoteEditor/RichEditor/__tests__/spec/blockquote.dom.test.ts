@@ -31,6 +31,7 @@ test('Removes an empty quote', async () => {
 
 	const editor = screen.getByRole('textbox');
 	const quote = within(editor).getByRole('blockquote');
+	expect(quote).toHaveTextContent('');
 
 	await user.click(quote);
 	await user.keyboard('{Backspace}');
@@ -67,6 +68,8 @@ test('Removes nested quote after deleting its text', async () => {
 	const quotes = within(editor).getAllByRole('blockquote');
 	expect(quotes).toHaveLength(2);
 	expect(quotes[0]).toContainElement(quotes[1]);
+	expect(quotes[0]).toHaveTextContent('foo');
+	expect(quotes[1]).toHaveTextContent('bar');
 
 	// Delete the text
 	await user.click(quotes[1]);
@@ -97,8 +100,6 @@ test('Reduces quote nesting level while preserving its text', async () => {
 	await user.click(quotes[1]);
 	setCursorPosition(quotes[1], 0);
 	await user.keyboard('{Backspace}');
-
-	expect(within(editor).getAllByRole('blockquote')).toHaveLength(1);
 
 	const updatedQuote = within(editor).getAllByRole('blockquote');
 	expect(updatedQuote).toHaveLength(1);
