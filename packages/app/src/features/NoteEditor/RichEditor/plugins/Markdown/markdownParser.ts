@@ -4,86 +4,86 @@ import {
 	$createParagraphNode,
 	$createTextNode,
 	$getRoot,
-	$isLineBreakNode,
-	$isParagraphNode,
 	$isTextNode,
-	IS_CODE,
 	LexicalNode,
+	TextFormatType,
+	TextNode,
 } from 'lexical';
-import {
-	Blockquote,
-	Break,
-	Code,
-	Content,
-	Delete,
-	Emphasis,
-	Heading,
-	HTML,
-	Image,
-	InlineCode,
-	Link,
-	List,
-	ListItem,
-	Paragraph,
-	Root,
-	Strong,
-	Table,
-	TableCell,
-	TableRow,
-	Text,
-	ThematicBreak,
-} from 'mdast';
+import { Content, type Root } from 'mdast';
+import { defaultHandlers } from 'mdast-util-to-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkParse from 'remark-parse';
 import remarkStringify from 'remark-stringify';
-import { unified } from 'unified';
+import { Processor, unified } from 'unified';
 import { u } from 'unist-builder';
-import { $createCodeNode, $isCodeNode } from '@lexical/code';
-import { $createLinkNode, $isLinkNode } from '@lexical/link';
-import {
-	$createListItemNode,
-	$createListNode,
-	$isListItemNode,
-	$isListNode,
-	ListType,
-} from '@lexical/list';
-import {
-	$createHorizontalRuleNode,
-	$isHorizontalRuleNode,
-} from '@lexical/react/LexicalHorizontalRuleNode';
-import {
-	$createHeadingNode,
-	$createQuoteNode,
-	$isHeadingNode,
-	$isQuoteNode,
-} from '@lexical/rich-text';
+import { TextFormat } from '@features/NoteEditor/EditorPanel';
+import { $createCodeNode } from '@lexical/code-core';
+import { $createLinkNode } from '@lexical/link';
+import { $createListItemNode, $createListNode, ListType } from '@lexical/list';
+import { $createHorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
+import { $createHeadingNode, $createQuoteNode } from '@lexical/rich-text';
 import {
 	$createTableCellNode,
 	$createTableNode,
 	$createTableRowNode,
-	$isTableCellNode,
-	$isTableNode,
-	$isTableRowNode,
 	TableCellHeaderStates,
 } from '@lexical/table';
 
-import { $createImageNode, $isImageNode } from '../Image/ImageNode';
-import { $createFormattingNode, $isFormattingNode } from './nodes/FormattingNode';
+import { $createImageNode } from '../Image/ImageNode';
+import { convertLexicalNodeToMarkdownNode } from './convertLexicalNodeToMarkdownNode';
+import { createSyncContext } from './createSyncContext';
 import { $createRawNode } from './nodes/RawNode';
+import { liftFormattingNodes } from './remark/remarkLiftFormatting';
+import { fillGapsWithParagraphs } from './remark/remarkPreserveBlankLines';
 
-const markdownProcessor = unified()
+export const markdownProcessor = unified()
 	.use(remarkParse)
 	.use(remarkGfm)
 	.use(remarkStringify, {
 		bullet: '-',
 		listItemIndent: 'one',
+		handlers: {
+			paragraph(node, parent, state, info) {
+				// Empty line will be added after that node anyway
+				// So empty paragraph converts to 1 empty line
+				if (node.children.length === 0) {
+					return '';
+				}
+
+				// In case paragraph is not empty, we fallback
+				// to default serializer
+				return defaultHandlers.paragraph(node, parent, state, info);
+			},
+		},
 		join: [
-			() => {
-				return 0;
+			(left, right) => {
+				// Join empty paragraphs with no empty lines between them
+				if (left.type === 'paragraph' && right.type === 'paragraph') {
+					const isLeftEmpty = left.children.length === 0;
+					const isRightEmpty = right.children.length === 0;
+
+					// Join only in case both nodes are empty
+					if (isLeftEmpty && isRightEmpty) return 0;
+
+					// Otherwise do not change standard behavior
+					return null;
+				}
+
+				return null;
 			},
 		],
 	})
-	.freeze();
+	.freeze() as unknown as Processor<Root, Root, Root, Root, string>;
+
+export const parseMarkdownToAST = (source: string) => {
+	return markdownProcessor.runSync(
+		fillGapsWithParagraphs(markdownProcessor.parse(source)),
+	);
+};
+
+export const serializeMarkdownTree = (tree: Root) => {
+	return markdownProcessor.stringify(tree);
+};
 
 export const dumpMarkdownNode = (node: Content) => {
 	const content = markdownProcessor.stringify(
@@ -99,31 +99,58 @@ export const dumpMarkdownNode = (node: Content) => {
 	return content;
 };
 
-export const $convertFromMarkdownString = (rawMarkdown: string) => {
-	const mdTree = markdownProcessor.parse(rawMarkdown);
+export const $wrapWithParagraph = (children: LexicalNode[]) => {
+	const p = $createParagraphNode();
+	p.append(...children);
 
-	function convertToMarkdownNode(node: Content): LexicalNode {
+	return p;
+};
+
+const $setTextNodeFormat = (node: TextNode, formats: Iterable<TextFormatType>) => {
+	for (const format of formats) {
+		node.toggleFormat(format);
+	}
+};
+
+/**
+ * MDAST node type to Lexical text format
+ */
+const textFormattingMap = {
+	emphasis: 'italic',
+	strong: 'bold',
+	delete: 'strikethrough',
+} satisfies Record<string, TextFormat>;
+
+export const $convertFromMarkdownString = (rawMarkdown: string) => {
+	const mdTree = parseMarkdownToAST(rawMarkdown);
+
+	const textFormatContext = createSyncContext<Set<TextFormat>>(new Set());
+	function convertToMarkdownNode(node: Content): LexicalNode[] {
 		switch (node.type) {
 			case 'text': {
-				return $createTextNode(node.value);
+				const t = $createTextNode(node.value);
+				$setTextNodeFormat(t, textFormatContext.get());
+				return [t];
 			}
 			case 'paragraph': {
 				const paragraph = $createParagraphNode();
 				paragraph.append(...convertToMarkdownNodes(node.children));
 
-				return paragraph;
+				return [paragraph];
 			}
 			case 'image': {
-				return $createImageNode({
-					src: node.url,
-					altText: node.alt || '',
-				});
+				return [
+					$createImageNode({
+						src: node.url,
+						altText: node.alt || '',
+					}),
+				];
 			}
 			case 'heading': {
 				const heading = $createHeadingNode(`h${node.depth}`);
 				heading.append(...convertToMarkdownNodes(node.children));
 
-				return heading;
+				return [heading];
 			}
 			case 'list': {
 				let listType: ListType = 'bullet';
@@ -140,115 +167,86 @@ export const $convertFromMarkdownString = (rawMarkdown: string) => {
 				const list = $createListNode(listType);
 				list.append(...convertToMarkdownNodes(node.children));
 
-				return list;
+				return [list];
 			}
 			case 'listItem': {
 				const listItem = $createListItemNode(node.checked ?? undefined);
-				listItem.append(...convertToMarkdownNodes(node.children));
+				listItem.append(
+					$wrapWithParagraph(convertToMarkdownNodes(node.children)),
+				);
 
-				return listItem;
+				return [listItem];
 			}
 			case 'link': {
 				const link = $createLinkNode(node.url, { title: node.title });
 				link.append(...convertToMarkdownNodes(node.children));
 
-				return link;
+				return [link];
 			}
 			case 'blockquote': {
 				const quote = $createQuoteNode();
 				quote.append(...convertToMarkdownNodes(node.children));
 
-				return quote;
+				return [quote];
 			}
 			case 'table': {
 				const table = $createTableNode();
-				table.append(...convertToMarkdownNodes(node.children, true));
-				return table;
+				table.append(...convertToMarkdownNodes(node.children));
+				return [table];
 			}
 			case 'tableRow': {
 				const tableRow = $createTableRowNode();
-				tableRow.append(...convertToMarkdownNodes(node.children, true));
-				return tableRow;
+				tableRow.append(...convertToMarkdownNodes(node.children));
+				return [tableRow];
 			}
 			case 'tableCell': {
 				const tableCell = $createTableCellNode(TableCellHeaderStates.NO_STATUS);
 
-				const paragraph = $createParagraphNode();
-				paragraph.append(...convertToMarkdownNodes(node.children, true));
-				tableCell.append(paragraph);
+				const p = $createParagraphNode();
+				p.append(...convertToMarkdownNodes(node.children));
+				tableCell.append(p);
 
-				return tableCell;
+				return [tableCell];
 			}
 			case 'code': {
 				const code = $createCodeNode(node.lang);
 				code.append($createTextNode(node.value));
 
-				return code;
+				return [code];
 			}
 			case 'inlineCode': {
 				const text = $createTextNode(node.value);
-				text.setFormat(IS_CODE);
-				return text;
+				$setTextNodeFormat(text, [...textFormatContext.get(), 'code']);
+				return [text];
 			}
-			case 'emphasis': {
-				const format = $createFormattingNode({ tag: 'em' });
-				format.append(...convertToMarkdownNodes(node.children));
-
-				return format;
-			}
-			case 'strong': {
-				const format = $createFormattingNode({ tag: 'b' });
-				format.append(...convertToMarkdownNodes(node.children));
-
-				return format;
-			}
+			// TODO: handle sub/super/etc
+			case 'emphasis':
+			case 'strong':
 			case 'delete': {
-				const format = $createFormattingNode({ tag: 'del' });
-				format.append(...convertToMarkdownNodes(node.children));
-
-				return format;
+				return textFormatContext.use(
+					textFormatContext
+						.get()
+						.union(new Set([textFormattingMap[node.type]])),
+					() => convertToMarkdownNodes(node.children),
+				);
 			}
 			case 'break': {
-				return $createLineBreakNode();
+				return [$createLineBreakNode()];
 			}
 			case 'thematicBreak': {
-				const format = $createHorizontalRuleNode();
-				return format;
+				return [$createHorizontalRuleNode()];
 			}
 		}
 
 		const rawNode = $createRawNode();
 		rawNode.append($createTextNode(dumpMarkdownNode(node)));
-		return rawNode;
+		return [rawNode];
 	}
 
-	function convertToMarkdownNodes(
-		mdTree: Content[],
-		strictMode = false,
-	): LexicalNode[] {
+	function convertToMarkdownNodes(mdTree: Content[]): LexicalNode[] {
 		const lexicalTree: LexicalNode[] = [];
-
-		let lastNode: Content | null = null;
 		for (const mdNode of mdTree) {
-			if (!strictMode) {
-				// Insert line breaks
-				if (
-					lastNode !== null &&
-					lastNode.position &&
-					mdNode !== null &&
-					mdNode.position
-				) {
-					const missedLines =
-						mdNode.position.start.line - lastNode.position.end.line;
-
-					for (let i = 0; i < missedLines - 1; i++) {
-						lexicalTree.push($createParagraphNode());
-					}
-				}
-			}
-
-			lastNode = mdNode;
-			lexicalTree.push(convertToMarkdownNode(mdNode));
+			lexicalTree.push(...convertToMarkdownNode(mdNode));
 		}
 
 		return lexicalTree;
@@ -264,178 +262,27 @@ export const $convertFromMarkdownString = (rawMarkdown: string) => {
 
 	const rootNode = $getRoot();
 	rootNode.clear();
-	rootNode.append(...lexicalNodes);
+
+	if (lexicalNodes.length > 0) {
+		rootNode.append(...lexicalNodes);
+	} else {
+		rootNode.append($createParagraphNode());
+	}
+};
+
+export const $serializeAsMarkdownAST = () => {
+	const rootNode = $getRoot();
+	const children = rootNode.getChildren();
+
+	const tree = u('root', {
+		children: children.map(convertLexicalNodeToMarkdownNode),
+	}) satisfies Root;
+
+	liftFormattingNodes(tree);
+
+	return tree;
 };
 
 export const $convertToMarkdownString = () => {
-	const rootNode = $getRoot();
-
-	const convertToMarkdownNode = (node: LexicalNode): Content => {
-		if ($isParagraphNode(node)) {
-			const paragraph = u('paragraph', { children: [] }) as Paragraph;
-
-			const nestedNodes = node.getChildren();
-			if (
-				nestedNodes.length === 0 ||
-				(nestedNodes.every((node) => $isTextNode(node)) &&
-					node.getTextContent().trim().length === 0)
-			) {
-				paragraph.children.push(u('text', { value: '' }) satisfies Text);
-				return paragraph;
-			}
-
-			for (const child of node.getChildren()) {
-				const content = convertToMarkdownNode(child);
-				paragraph.children.push(content as any);
-			}
-
-			return paragraph;
-		}
-
-		if ($isImageNode(node)) {
-			return u('image', {
-				url: node.getSrc(),
-				alt: node.getAltText(),
-			}) satisfies Image;
-		}
-
-		if ($isTextNode(node)) {
-			if (node.hasFormat('code')) {
-				return u('inlineCode', {
-					value: node.getTextContent(),
-				}) satisfies InlineCode;
-			}
-
-			return u('text', { value: node.getTextContent() }) satisfies Text;
-		}
-
-		if ($isCodeNode(node)) {
-			return u('code', {
-				lang: node.getLanguage(),
-				value: node.getTextContent(),
-			}) satisfies Code;
-		}
-
-		if ($isFormattingNode(node)) {
-			const tagName = node.getTagName();
-			switch (tagName) {
-				case 'em': {
-					return u('emphasis', {
-						children: node
-							.getChildren()
-							.map(convertToMarkdownNode) as Emphasis['children'],
-					}) satisfies Emphasis;
-				}
-				case 'del': {
-					return u('delete', {
-						children: node
-							.getChildren()
-							.map(convertToMarkdownNode) as Delete['children'],
-					}) satisfies Delete;
-				}
-				case 'b': {
-					return u('strong', {
-						children: node
-							.getChildren()
-							.map(convertToMarkdownNode) as Strong['children'],
-					}) satisfies Strong;
-				}
-			}
-		}
-
-		if ($isHorizontalRuleNode(node)) {
-			return u('thematicBreak') satisfies ThematicBreak;
-		}
-
-		if ($isListNode(node)) {
-			return u('list', {
-				ordered: node.getTag() === 'ol',
-				start: node.getStart(),
-				spread: false,
-				children: node
-					.getChildren()
-					.map(convertToMarkdownNode) as List['children'],
-			}) satisfies List;
-		}
-		if ($isListItemNode(node)) {
-			return u('listItem', {
-				spread: false,
-				checked: node.getChecked(),
-				children: [
-					u('paragraph', {
-						children: node
-							.getChildren()
-							.map(convertToMarkdownNode) as Paragraph['children'],
-					}) as Paragraph,
-				],
-			}) satisfies ListItem;
-		}
-
-		if ($isLinkNode(node)) {
-			return u('link', {
-				url: node.getURL(),
-				alt: node.getTitle(),
-				children: node
-					.getChildren()
-					.map(convertToMarkdownNode) as Link['children'],
-			}) satisfies Link;
-		}
-
-		if ($isQuoteNode(node)) {
-			return u('blockquote', {
-				children: node
-					.getChildren()
-					.map(convertToMarkdownNode) as Blockquote['children'],
-			}) satisfies Blockquote;
-		}
-
-		if ($isTableNode(node)) {
-			return u('table', {
-				children: node
-					.getChildren()
-					.map(convertToMarkdownNode) as Table['children'],
-			}) satisfies Table;
-		}
-		if ($isTableRowNode(node)) {
-			return u('tableRow', {
-				children: node
-					.getChildren()
-					.map(convertToMarkdownNode) as TableRow['children'],
-			}) satisfies TableRow;
-		}
-		if ($isTableCellNode(node)) {
-			return u('tableCell', {
-				children: node
-					.getChildren()
-					.map(convertToMarkdownNode) as TableCell['children'],
-			}) satisfies TableCell;
-		}
-
-		if ($isLineBreakNode(node)) {
-			return u('break', {}) satisfies Break;
-		}
-
-		if ($isHeadingNode(node)) {
-			const depth = Math.max(
-				1,
-				Math.min(parseInt(node.getTag().slice(1)), 6),
-			) as Heading['depth'];
-			return u('heading', {
-				depth: depth,
-				children: node
-					.getChildren()
-					.map(convertToMarkdownNode) as Heading['children'],
-			}) satisfies Heading;
-		}
-
-		// Default node
-		return u('html', { value: node.getTextContent() }) as HTML;
-	};
-
-	const children = rootNode.getChildren();
-	const mdTree = u('root', {
-		children: children.map(convertToMarkdownNode),
-	}) satisfies Root;
-
-	return markdownProcessor.stringify(mdTree);
+	return markdownProcessor.stringify($serializeAsMarkdownAST());
 };

@@ -2,6 +2,7 @@ AUTOINCREMENT
 transferables
 DBFS
 Aes
+opensource
 normalise
 Normalisation
 transly
@@ -143,3 +144,4 @@ behaviour
 uuidv
 fuzzysort
 dbus
+contenteditable

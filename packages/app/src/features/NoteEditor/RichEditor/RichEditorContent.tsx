@@ -1,5 +1,11 @@
-import React, { Ref, useEffect, useMemo } from 'react';
-import { $createRangeSelection, $getRoot, $getSelection, $setSelection } from 'lexical';
+import React, { Ref, useEffect, useImperativeHandle, useMemo } from 'react';
+import {
+	$createRangeSelection,
+	$getRoot,
+	$getSelection,
+	$setSelection,
+	LexicalEditor,
+} from 'lexical';
 import { Box, useSlotRecipe } from '@chakra-ui/react';
 import { CheckListPlugin } from '@lexical/react/LexicalCheckListPlugin';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
@@ -22,9 +28,9 @@ import { ContextMenuPlugin } from './plugins/ContextMenu/ContextMenuPlugin';
 import { EditorPanelPlugin } from './plugins/EditorPanelPlugin/EditorPanelPlugin';
 import { DropFilesPlugin } from './plugins/Files/DropFilesPlugin';
 import { FilesPlugin } from './plugins/Files/FilesPlugin';
-import { FormattingPlugin } from './plugins/Formatting/FormattingPlugin';
 import { HighlightingPlugin } from './plugins/HighlightingPlugin/HighlightingPlugin';
 import ImagesPlugin from './plugins/Image/ImagesPlugin';
+import { KeyboardControlsPlugin } from './plugins/KeyboardControlsPlugin/KeyboardControlsPlugin';
 import { LinkClickHandlerPlugin } from './plugins/LinkClickHandlerPlugin';
 import {
 	MarkdownSerializePlugin,
@@ -43,6 +49,7 @@ export type RichEditorContentProps = RichTextContainerProps &
 		isReadOnly?: boolean;
 		search?: string;
 		apiRef?: Ref<RichEditorAPI>;
+		editorRef?: Ref<LexicalEditor>;
 	};
 
 export const RichEditorContent = ({
@@ -52,6 +59,7 @@ export const RichEditorContent = ({
 	isReadOnly,
 	search,
 	apiRef,
+	editorRef,
 	...props
 }: RichEditorContentProps) => {
 	const recipe = useSlotRecipe({ key: 'richEditor' });
@@ -61,6 +69,8 @@ export const RichEditorContent = ({
 
 	// Expose API
 	const [editor] = useLexicalComposerContext();
+	useImperativeHandle(editorRef, () => editor);
+
 	const api = useMemo(() => {
 		return {
 			focus() {
@@ -113,7 +123,7 @@ export const RichEditorContent = ({
 			<RichTextContainer {...props} placeholder={placeholder} />
 			<MarkdownSerializePlugin value={value} onChanged={onChanged} />
 			<MarkdownShortcutPlugin />
-			<FormattingPlugin />
+			<KeyboardControlsPlugin />
 			<ImagesPlugin />
 			<CodeHighlightPlugin />
 			<LinkPlugin />

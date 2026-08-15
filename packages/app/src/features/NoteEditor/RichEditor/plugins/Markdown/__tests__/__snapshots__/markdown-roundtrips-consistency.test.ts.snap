@@ -1,0 +1,231 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Bold node inside bold node > Consistent markdown output 1`] = `
+"**foo bar baz**
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Check list with all checked items > Consistent markdown output 1`] = `
+"- [x] foo
+  - [x] bar
+  - [x] baz
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Check list with no checked items > Consistent markdown output 1`] = `
+"- [ ] foo
+  - [ ] bar
+  - [ ] baz
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Check list with one checked item > Consistent markdown output 1`] = `
+"- [ ] foo
+  - [x] bar
+  - [ ] baz
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Details with summary > Consistent markdown output 1`] = `
+"<details open>
+<summary>Shopping list</summary>
+
+- Vegetables
+- Fruits
+- Fish
+
+</details>
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Few paragraphs > Consistent markdown output 1`] = `
+"# Why Russian Classics Feel So Different
+
+I've noticed that after finishing a Russian novel I rarely want to start another book immediately.
+
+It's not because the stories are difficult. It's because they seem to leave unfinished conversations in my head. Instead of remembering the plot, I keep thinking about the questions the characters were asking themselves.
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Formatted line > Consistent markdown output 1`] = `
+"**That** is a ***formatted*** *line*.
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Header with formatting > Consistent markdown output 1`] = `
+"### *All header is italic, **something bold**, ~~strikethrough~~, \`inline code\`*
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Image > Consistent markdown output 1`] = `
+"![Alt text](https://url)
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Image wrapped by link > Consistent markdown output 1`] = `
+"[![Alt text](https://url)](proto://url2 "Link title")
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Inline code > Consistent markdown output 1`] = `
+"Text with \`code\`
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Inline code with formatting > Consistent markdown output 1`] = `
+"Text with ***~~\`formatted code\`~~***
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Links > Consistent markdown output 1`] = `
+"Some [link](https://url "Title") and [another link](proto://url)
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > List item with inline elements > Consistent markdown output 1`] = `
+"- foo [bar](...) baz
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > List item with inline elements and nested list > Consistent markdown output 1`] = `
+"- item 1 [foo](...) bar
+  - item 1-2
+  - item 2-2
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > List with formatting > Consistent markdown output 1`] = `
+"- *All text can be italic, something additionally can be **bold**, ~~strikethrough~~, or **~~bold AND strikethrough~~*** | plain text and ~~deleted~~
+- Plain text
+- *Italic*
+- **Bold**
+- ~~Delete~~
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Mixed list > Consistent markdown output 1`] = `
+"- level 1-1
+  - [x] level 2-1
+  - [x] level 2-2
+    1. level 3-1
+    2. level 3-2
+       1. level 4-1
+       2. level 4-2
+       3. level 4-3
+    3. level 3-3
+  - [ ] level 2-3
+- level 1-2
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Nested quote > Consistent markdown output 1`] = `
+"> The quote
+>
+>
+>
+> > Quote inside another quote
+> >
+> > With some spaces
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Numbered list > Consistent markdown output 1`] = `
+"1. foo
+2. bar
+3. baz
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Plain list > Consistent markdown output 1`] = `
+"- foo
+  - bar
+  - baz
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Quote with formatting > Consistent markdown output 1`] = `
+"> *All text can be italic, something additionally can be **bold**, ~~strikethrough~~, or **~~bold AND strikethrough~~*** | plain text and ~~deleted~~
+> Plain text
+> *Italic*
+> **Bold**
+> ~~Delete~~
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Rich formatting > Consistent markdown output 1`] = `
+"*All text can be italic, something additionally can be **bold**, ~~strikethrough~~, or **~~bold AND strikethrough~~***
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Simple code > Consistent markdown output 1`] = `
+"\`\`\`js
+const x = 42;
+console.log("Your number is", x ** x);
+\`\`\`
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Simple formatting > Consistent markdown output 1`] = `
+"Text may be **bold**, *italic*, ~~strikethrough~~.
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Simple post with headers > Consistent markdown output 1`] = `
+"# The title
+
+A few lines
+In one paragraph.
+
+Another paragraph.
+
+## Another section
+
+Introduction
+
+***
+
+Text after a separator
+
+## Header with no space
+
+Text under header
+
+## Yet another section
+
+Section content
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Simple quote > Consistent markdown output 1`] = `
+"> The quote
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Simple table > Consistent markdown output 1`] = `
+"| Name  | Value |
+| ----- | ----- |
+| One   | 1     |
+| Two   | 2     |
+| Three | 3     |
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Table with formatting > Consistent markdown output 1`] = `
+"| foo                                                                                                                    | bar                        |
+| ---------------------------------------------------------------------------------------------------------------------- | -------------------------- |
+| *All text can be italic, something additionally can be **bold**, ~~strikethrough~~, or **~~bold AND strikethrough~~*** | plain text and ~~deleted~~ |
+| **bold**                                                                                                               | *italic*                   |
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Text with few empty lines > Consistent markdown output 1`] = `
+"foo
+
+bar
+"
+`;
+
+exports[`Normalized Markdown-Lexical-Markdown round-trips must yield consistent markdown text > Unsupported features > Consistent markdown output 1`] = `
+"<button>Some button</button>
+"
+`;

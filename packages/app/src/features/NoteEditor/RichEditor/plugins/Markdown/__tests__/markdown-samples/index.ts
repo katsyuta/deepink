@@ -1,0 +1,125 @@
+export const fewParagraphs = `
+# Why Russian Classics Feel So Different
+
+I've noticed that after finishing a Russian novel I rarely want to start another book immediately.
+
+It's not because the stories are difficult. It's because they seem to leave unfinished conversations in my head. Instead of remembering the plot, I keep thinking about the questions the characters were asking themselves.
+`.trim();
+
+export const simpleFormatting = `
+Text may be **bold**, *italic*, ~~strikethrough~~.
+`.trim();
+
+export const richFormatting = `
+*All text can be italic, something additionally can be **bold**, ~~strikethrough~~, or **~~bold AND strikethrough~~***
+`.trim();
+
+export const formattingInList = `
+- *All text can be italic, something additionally can be **bold**, ~~strikethrough~~, or **~~bold AND strikethrough~~*** | plain text and ~~deleted~~
+- Plain text
+- *Italic*
+- **Bold**
+- ~~Delete~~
+`.trim();
+
+export const formattingInQuote = `
+> *All text can be italic, something additionally can be **bold**, ~~strikethrough~~, or **~~bold AND strikethrough~~*** | plain text and ~~deleted~~
+> Plain text
+> *Italic*
+> **Bold**
+> ~~Delete~~
+`.trim();
+
+export const formattingInTable = `
+| foo | bar |
+| ---- | ----- |
+| *All text can be italic, something additionally can be **bold**, ~~strikethrough~~, or **~~bold AND strikethrough~~*** | plain text and ~~deleted~~ |
+| **bold** | *italic* |
+`.trim();
+
+export const mixedList = `
+- level 1-1
+  - [x] level 2-1
+  - [x] level 2-2
+    1. level 3-1
+    2. level 3-2
+       1. level 4-1
+       2. level 4-2
+       3. level 4-3
+    3. level 3-3
+  - [ ] level 2-3
+- level 1-2
+`.trim();
+
+export const postWithHeaders = `
+# The title
+
+A few lines
+In one paragraph.
+
+Another paragraph.
+
+## Another section
+
+Introduction
+
+---
+
+Text after a separator
+
+## Header with no space
+Text under header
+
+## Yet another section
+
+Section content
+`.trim();
+
+export const simpleCode = `
+\`\`\`js
+const x = 42;
+console.log("Your number is", x ** x);
+\`\`\`
+`.trim();
+
+export const formattedLine = `
+**That** is a ***formatted*** *line*.
+`.trim();
+
+export const simpleQuote = `
+> The quote
+`.trim();
+
+export const nestedQuote = `
+> The quote
+>
+>
+>
+> > Quote inside another quote
+> >
+> >
+> > With some spaces
+`.trim();
+
+export const simpleTable = `
+| Name | Value |
+| ---- | ----- |
+| One  | 1     |
+| Two  | 2     |
+| Three | 3    |
+`.trim();
+
+export const detailsWithSummary = `
+<details open>
+<summary>Shopping list</summary>
+
+* Vegetables
+* Fruits
+* Fish
+
+</details>
+`.trim();
+
+export const unsupportedFeatures = `
+<button>Some button</button>
+`.trim();
