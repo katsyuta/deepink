@@ -45,15 +45,6 @@ export const useNotesData = ({ noteIds }: { noteIds: NoteId[] }) => {
 	useEffect(() => {
 		const onNoteUpdated = (noteId: NoteId) => {
 			if (notesData.has(noteId)) {
-				// Update the note immediately, otherwise it may temporarily display stale data
-				// e.g. after unpinning, the note moves but still shows the pinned icon
-				// until the cache is updated and it is re-rendered with the correct state
-				notesRegistry.getById([noteId]).then((loadedNote) => {
-					const note = loadedNote[0];
-					if (!note) return;
-					notesData.add([[note.id, note]]);
-				});
-
 				loadNotesData();
 			}
 		};
@@ -64,7 +55,7 @@ export const useNotesData = ({ noteIds }: { noteIds: NoteId[] }) => {
 			),
 			eventBus.listen(WorkspaceEvents.NOTE_EDITED, onNoteUpdated),
 		);
-	}, [eventBus, loadNotesData, notesData, notesRegistry]);
+	}, [eventBus, loadNotesData, notesData]);
 
 	return notesData;
 };
