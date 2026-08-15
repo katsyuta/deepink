@@ -106,7 +106,7 @@ export const KeyboardControlsPlugin = () => {
 							return false;
 						if (selection.anchor.offset !== 0) return false;
 
-						// Handle Backspace at the beginning of a quote: unwrap the quote or remove it if it is empty
+						// Handle Backspace at the beginning of a quote: unwrap the quote or remove if it is empty
 						const quoteNode = $findMatchingParent(
 							selection.anchor.getNode(),
 							$isQuoteNode,
@@ -128,14 +128,14 @@ export const KeyboardControlsPlugin = () => {
 						if (!$isElementNode(parent)) return false;
 
 						const children = quoteNode.getChildren();
-						const index = quoteNode.getIndexWithinParent();
 
 						// Move the quote's children into its parent preserving their content
 						if (children.length > 0) {
+							const index = quoteNode.getIndexWithinParent();
 							parent.splice(index, 1, children);
 							children[0].selectStart();
 						} else {
-							// Empty quote - just remove it
+							// Remove empty quote
 							quoteNode.remove();
 							parent.selectEnd();
 						}
