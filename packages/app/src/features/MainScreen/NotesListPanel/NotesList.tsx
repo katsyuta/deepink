@@ -1,12 +1,15 @@
-import React, { FC, memo, useRef } from 'react';
+import React, { FC, memo, useEffect, useRef, useState } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { FaPenToSquare } from 'react-icons/fa6';
 import { LOCALE_NAMESPACE } from 'src/i18n';
+import { WorkspaceEvents } from '@api/events/workspace';
 import { Box, Button, Skeleton, Text, VStack } from '@chakra-ui/react';
 import { NotePreview } from '@components/NotePreview/NotePreview';
+import { NoteId } from '@core/features/notes';
 import { getNoteTitle } from '@core/features/notes/utils';
 import { TELEMETRY_EVENT_NAME } from '@core/features/telemetry';
 import { getContextMenuCoords } from '@electron/requests/contextMenu/renderer';
+import { useEventBus } from '@features/App/Workspace/WorkspaceProvider';
 import { useNoteContextMenu } from '@features/NotesContainer/NoteContextMenu/useNoteContextMenu';
 import { useTelemetryTracker } from '@features/telemetry';
 import { useCreateNote } from '@hooks/notes/useCreateNote';
@@ -30,6 +33,36 @@ MemoizedSkeleton.displayName = 'MemoizedSkeleton';
 export const scrollAlignment: ScrollToOptions['align'] = 'start';
 
 export type NotesListProps = {};
+
+export const useOptimisticPinOverride = (notesData: ReturnType<typeof useNotesData>) => {
+	const [pinOverride, setPinOverride] = useState<{
+		noteId: NoteId;
+		isPinned: boolean;
+	} | null>(null);
+
+	const eventBus = useEventBus();
+	useEffect(() => {
+		return eventBus.listen(WorkspaceEvents.NOTE_UPDATED, ({ noteId, reason }) => {
+			if (reason !== 'pin') return;
+
+			setPinOverride({
+				noteId,
+				isPinned: !(notesData.get(noteId)?.isPinned ?? false),
+			});
+		});
+	}, [eventBus, notesData]);
+
+	useEffect(() => {
+		if (!pinOverride) return;
+
+		const actualPinned = notesData.get(pinOverride.noteId)?.isPinned;
+		if (actualPinned === pinOverride.isPinned) {
+			setPinOverride(null);
+		}
+	}, [notesData, pinOverride]);
+
+	return pinOverride;
+};
 
 export const NotesList: FC<NotesListProps> = () => {
 	const { t } = useTranslation(LOCALE_NAMESPACE.features);
@@ -79,6 +112,8 @@ export const NotesList: FC<NotesListProps> = () => {
 		activeNoteId,
 		activeNoteRef,
 	});
+
+	const pinStateOverride = useOptimisticPinOverride(notesData);
 
 	// TODO: implement dragging and moving items
 	return (
@@ -202,7 +237,11 @@ export const NotesList: FC<NotesListProps> = () => {
 											},
 										);
 									}}
-									isPinned={note.isPinned}
+									isPinned={
+										pinStateOverride?.noteId === note.id
+											? pinStateOverride.isPinned
+											: note.isPinned
+									}
 									onDoubleClick={() => {
 										// Convert preview tab to regular
 										noteActions.click(note.id, { preview: false });
