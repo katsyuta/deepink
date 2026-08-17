@@ -4,6 +4,8 @@ import { createFileControllerMock } from '@utils/mocks/fileControllerMock';
 
 import { NotesController } from './NotesController';
 
+vi.useFakeTimers();
+
 test('updating a pinned note does not affect the order of pinned notes', async () => {
 	const db = await openSQLite(createFileControllerMock());
 	onTestFinished(db.close);
