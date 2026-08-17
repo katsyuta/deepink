@@ -22,9 +22,12 @@ export const useOptimisticPinDisplay = (notesData: ReturnType<typeof useNotesDat
 		return eventBus.listen(WorkspaceEvents.NOTE_UPDATED, ({ noteId, reason }) => {
 			if (reason !== 'pin') return;
 
+			const currentNote = notesData.get(noteId);
+			if (!currentNote) return;
+
 			setPinDisplayState({
 				noteId,
-				isPinned: !(notesData.get(noteId)?.isPinned ?? false),
+				isPinned: !currentNote.isPinned,
 			});
 		});
 	}, [eventBus, notesData]);
