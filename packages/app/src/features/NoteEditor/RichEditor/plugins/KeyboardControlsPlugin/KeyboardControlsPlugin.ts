@@ -133,7 +133,7 @@ export const KeyboardControlsPlugin = () => {
 
 						const changed = $changeListItemsNesting(
 							selection,
-							event.code === 'BracketRight' ? 'decrease' : 'increase',
+							event.code === 'BracketLeft' ? 'decrease' : 'increase',
 						);
 						if (!changed) return false;
 
