@@ -4,8 +4,10 @@ import {
 	$createTextNode,
 	$findMatchingParent,
 	$getRoot,
+	$getSelection,
 	$isBlockElementNode,
 	$isParagraphNode,
+	$isRangeSelection,
 	$isRootNode,
 	$isTextNode,
 	CONTROLLED_TEXT_INSERTION_COMMAND,
@@ -18,6 +20,7 @@ import {
 	INSERT_CHECK_LIST_COMMAND,
 	INSERT_ORDERED_LIST_COMMAND,
 	INSERT_UNORDERED_LIST_COMMAND,
+	ListNode,
 	REMOVE_LIST_COMMAND,
 } from '@lexical/list';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
@@ -101,20 +104,23 @@ export const EditorPanelPlugin = () => {
 					// If so, convert the list to a plain paragraph
 					let isAlreadyRequestedType = false;
 					editor.update(() => {
-						const target = $getCursorNode();
-						if (!target) return;
+						const selection = $getSelection();
+						if (!$isRangeSelection(selection)) return;
 
-						const listParent = $findMatchingParent(target, $isListNode);
+						const nodes = selection.getNodes();
+						const listNodesInSelection = new Set<ListNode>();
+
+						nodes.forEach((node) => {
+							const listParent = $findMatchingParent(node, $isListNode);
+							if (listParent) listNodesInSelection.add(listParent);
+						});
+
+						// Only if all items in list is the same type
 						isAlreadyRequestedType =
-							listParent?.getListType() === listTypeMap[type];
-
-						if (isAlreadyRequestedType) return;
-
-						if ($isRootNode(target)) {
-							const paragraph = $createParagraphNode();
-							target.append(paragraph);
-							paragraph.select();
-						}
+							listNodesInSelection.size > 0 &&
+							Array.from(listNodesInSelection).every(
+								(list) => list.getListType() === listTypeMap[type],
+							);
 					});
 
 					if (isAlreadyRequestedType) {
