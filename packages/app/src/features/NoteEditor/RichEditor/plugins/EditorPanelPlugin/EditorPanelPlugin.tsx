@@ -100,8 +100,8 @@ export const EditorPanelPlugin = () => {
 					});
 				},
 				list({ type }) {
-					// Check if the list is already of the requested type
-					// If so, convert the list to a plain paragraph
+					// Check whether all selected lists already have the requested type
+					// If they do, convert them to paragraphs instead of applying the same list type
 					let didConvert = false;
 					editor.update(() => {
 						const selection = $getSelection();
@@ -113,7 +113,6 @@ export const EditorPanelPlugin = () => {
 							if (listParent) listNodes.add(listParent);
 						});
 
-						// If the selection contains nested lists of different types, unify them into one type
 						const isAlreadyRequestedType =
 							listNodes.size > 0 &&
 							Array.from(listNodes).every(
@@ -128,6 +127,7 @@ export const EditorPanelPlugin = () => {
 
 					if (didConvert) return;
 
+					// Ensure the editor is not empty
 					editor.update(() => {
 						const target = $getCursorNode();
 						if (!target) return;
