@@ -1,16 +1,23 @@
 import { useEffect } from 'react';
 import {
 	$createParagraphNode,
+	$findMatchingParent,
 	$getSelection,
+	$isElementNode,
 	$isParagraphNode,
+	$isRangeSelection,
 	$isTextNode,
 	BaseSelection,
+	COMMAND_PRIORITY_HIGH,
 	COMMAND_PRIORITY_LOW,
 	createCommand,
 	ElementNode,
+	KEY_DOWN_COMMAND,
 	KEY_ENTER_COMMAND,
+	LexicalNode,
 } from 'lexical';
 import { $isCodeNode } from '@lexical/code-core';
+import { $isListItemNode } from '@lexical/list';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { $isQuoteNode } from '@lexical/rich-text';
 import { mergeRegister } from '@lexical/utils';
@@ -93,6 +100,88 @@ export const KeyboardControlsPlugin = () => {
 						return true;
 					},
 					COMMAND_PRIORITY_LOW,
+				),
+				editor.registerCommand(
+					KEY_DOWN_COMMAND,
+					(event) => {
+						if (
+							(event.key !== 'ArrowUp' && event.key !== 'ArrowDown') ||
+							(!event.ctrlKey && !event.metaKey)
+						)
+							return false;
+
+						const selection = $getSelection();
+						if (!$isRangeSelection(selection)) return false;
+
+						const moveableBlocks = new Set<LexicalNode>();
+
+						selection.getNodes().forEach((node) => {
+							const block =
+								$isElementNode(node) && !node.isInline()
+									? node
+									: $findMatchingParent(
+											node,
+											(node) =>
+												$isElementNode(node) && !node.isInline(),
+										);
+
+							if (block) moveableBlocks.add(block);
+						});
+
+						const selectedBlocks = Array.from(moveableBlocks);
+						if (!selectedBlocks.length) return false;
+
+						const hasMoveableAncestor = (node: LexicalNode) => {
+							const parent = node.getParent();
+
+							if (!parent) return false;
+							if (moveableBlocks.has(parent)) {
+								return true;
+							}
+
+							return hasMoveableAncestor(parent);
+						};
+
+						const blocksToMove = selectedBlocks
+							.filter((node) => !hasMoveableAncestor(node))
+							.flatMap((block) => {
+								if (!$isListItemNode(block)) {
+									return [block];
+								}
+								const nextSibling = block.getNextSibling();
+
+								if (
+									nextSibling &&
+									$isListItemNode(nextSibling) &&
+									!nextSibling.getChildren().some($isTextNode) &&
+									nextSibling.getChildrenSize() > 0
+								) {
+									return [block, nextSibling];
+								}
+
+								console.log(block);
+								return [block];
+							});
+
+						if (event.key === 'ArrowUp') {
+							const previousBlock = blocksToMove[0].getPreviousSibling();
+
+							blocksToMove.forEach((block) => {
+								previousBlock?.insertBefore(block);
+							});
+						} else {
+							const nextBlock =
+								blocksToMove[blocksToMove.length - 1].getNextSibling();
+
+							blocksToMove.toReversed().forEach((block) => {
+								nextBlock?.insertAfter(block);
+							});
+						}
+
+						event.preventDefault();
+						return true;
+					},
+					COMMAND_PRIORITY_HIGH,
 				),
 			),
 		[editor],
