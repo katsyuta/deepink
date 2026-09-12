@@ -1,9 +1,7 @@
 import { useEffect } from 'react';
 import {
 	$createParagraphNode,
-	$findMatchingParent,
 	$getSelection,
-	$isElementNode,
 	$isParagraphNode,
 	$isRangeSelection,
 	$isTextNode,
@@ -14,13 +12,13 @@ import {
 	ElementNode,
 	KEY_DOWN_COMMAND,
 	KEY_ENTER_COMMAND,
-	LexicalNode,
 } from 'lexical';
 import { $isCodeNode } from '@lexical/code-core';
-import { $isListItemNode } from '@lexical/list';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { $isQuoteNode } from '@lexical/rich-text';
 import { mergeRegister } from '@lexical/utils';
+
+import { $getBlocksToMove, $getMoveTarget, MoveDirection } from './blockNavigation';
 
 const OUT_OF_BLOCK_NODE_COMMAND = createCommand<ElementNode>();
 
@@ -113,65 +111,23 @@ export const KeyboardControlsPlugin = () => {
 						const selection = $getSelection();
 						if (!$isRangeSelection(selection)) return false;
 
-						const moveableBlocks = new Set<LexicalNode>();
+						const direction: MoveDirection =
+							event.key === 'ArrowUp' ? 'up' : 'down';
 
-						selection.getNodes().forEach((node) => {
-							const block =
-								$isElementNode(node) && !node.isInline()
-									? node
-									: $findMatchingParent(
-											node,
-											(node) =>
-												$isElementNode(node) && !node.isInline(),
-										);
+						const blocksToMove = $getBlocksToMove(selection, direction);
+						if (!blocksToMove?.length) return false;
 
-							if (block) moveableBlocks.add(block);
-						});
-
-						const selectedBlocks = Array.from(moveableBlocks);
-						if (!selectedBlocks.length) return false;
-
-						const hasMoveableAncestor = (node: LexicalNode) => {
-							const parent = node.getParent();
-
-							if (!parent) return false;
-							if (moveableBlocks.has(parent)) {
-								return true;
-							}
-
-							return hasMoveableAncestor(parent);
-						};
-
-						const blocksToMove = selectedBlocks
-							.filter((node) => !hasMoveableAncestor(node))
-							.flatMap((block) => {
-								if (!$isListItemNode(block)) {
-									return [block];
-								}
-								const nextSibling = block.getNextSibling();
-
-								if (
-									nextSibling &&
-									$isListItemNode(nextSibling) &&
-									!nextSibling.getChildren().some($isTextNode) &&
-									nextSibling.getChildrenSize() > 0
-								) {
-									return [block, nextSibling];
-								}
-
-								console.log(block);
-								return [block];
-							});
-
-						if (event.key === 'ArrowUp') {
-							const previousBlock = blocksToMove[0].getPreviousSibling();
+						if (direction === 'up') {
+							const previousBlock = $getMoveTarget(blocksToMove[0], 'up');
 
 							blocksToMove.forEach((block) => {
 								previousBlock?.insertBefore(block);
 							});
 						} else {
-							const nextBlock =
-								blocksToMove[blocksToMove.length - 1].getNextSibling();
+							const nextBlock = $getMoveTarget(
+								blocksToMove[blocksToMove.length - 1],
+								'down',
+							);
 
 							blocksToMove.toReversed().forEach((block) => {
 								nextBlock?.insertAfter(block);
