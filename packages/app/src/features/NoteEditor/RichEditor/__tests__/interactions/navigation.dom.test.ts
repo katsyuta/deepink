@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { renderRichEditor } from '../utils/renderRichEditor';
 import { selectContent, setCursorPosition } from '../utils/utils';
 
-test('Ctrl+ArrowUp moves a paragraph up', async () => {
+test('Moves a paragraph up', async () => {
 	const user = userEvent.setup();
 	await renderRichEditor({
 		value: 'The text about some interesting \n\n Boring text',
@@ -27,7 +27,7 @@ test('Ctrl+ArrowUp moves a paragraph up', async () => {
 	expect(paragraphsAfterMove[1]).toHaveTextContent('The text about some interesting');
 });
 
-test('Ctrl+ArrowDown moves a paragraph down', async () => {
+test('Moves a paragraph down', async () => {
 	const user = userEvent.setup();
 	await renderRichEditor({
 		value: 'The text about some interesting \n\n Boring text',
@@ -50,7 +50,7 @@ test('Ctrl+ArrowDown moves a paragraph down', async () => {
 	expect(paragraphsAfterMove[1]).toHaveTextContent('The text about some interesting');
 });
 
-test('Ctrl+ArrowUp moves a code block above the previous paragraph', async () => {
+test('Moves a code block up', async () => {
 	const user = userEvent.setup();
 	await renderRichEditor({
 		value: 'Coffee \n\n Milk \n\n ```console.log("One cup")```',
@@ -71,7 +71,7 @@ test('Ctrl+ArrowUp moves a code block above the previous paragraph', async () =>
 	expect(codeAfterMove).toAppearBefore(milkParagraph);
 });
 
-test('Move selected blocks together', async () => {
+test('moving a selection down and then back up restores the original order', async () => {
 	const user = userEvent.setup();
 	await renderRichEditor({ value: 'Green cup \n\n Red cup \n\n Black cup' });
 
@@ -106,7 +106,7 @@ test('Move selected blocks together', async () => {
 	expect(paragraphsAfterUp[2]).toHaveTextContent('Black cup');
 });
 
-test('Ctrl+ArrowDown moves a list item together with its nested list', async () => {
+test('Moves a list item with its nested list', async () => {
 	const user = userEvent.setup();
 	await renderRichEditor({
 		value: `- First item
@@ -139,7 +139,7 @@ test('Ctrl+ArrowDown moves a list item together with its nested list', async () 
 	expect(itemsAfterMove[1]).toContainElement(itemsAfterMove[2]);
 });
 
-test('Ctrl+ArrowUp moves a list item past an item that owns a nested list, without disturbing the nested list', async () => {
+test('Moves a list item past a nested list', async () => {
 	const user = userEvent.setup();
 	await renderRichEditor({
 		value: `- First item
