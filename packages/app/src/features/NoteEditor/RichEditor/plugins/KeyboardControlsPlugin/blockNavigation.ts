@@ -13,20 +13,40 @@ const $isNestedListWrapper = (node: LexicalNode | null) => {
 };
 
 /**
- * Finds the sibling to move the block relative to, skipping nested list
- * wrappers to keep the list item and its nested list together.
+ * Finds the block sibling to move relative to, skipping nested-list wrappers
  */
-export const $getMoveTarget = (node: LexicalNode, direction: MoveDirection) => {
+const $getMovableSibling = (node: LexicalNode, direction: MoveDirection) => {
 	const sibling =
 		direction === 'up' ? node.getPreviousSibling() : node.getNextSibling();
 	if (!sibling) return null;
 
-	if (direction === 'up' && $isNestedListWrapper(sibling)) {
-		return sibling.getPreviousSibling();
+	// Keep a list item and its nested list together
+	if (!$isNestedListWrapper(sibling)) return sibling;
+
+	return direction === 'up' ? sibling.getPreviousSibling() : sibling.getNextSibling();
+};
+
+/**
+ * Finds the sibling to move the block relative to, skipping nested list
+ * wrappers to keep the list item and its nested list together.
+ */
+export const $getMoveTarget = (
+	node: LexicalNode,
+	direction: MoveDirection,
+): LexicalNode | null => {
+	const sibling = $getMovableSibling(node, direction);
+
+	// No sibling at this level - continue from the parent
+	if (!sibling) {
+		const parent = node.getParent();
+		return parent && !$isRootNode(parent) ? $getMoveTarget(parent, direction) : null;
 	}
 
-	if (direction === 'down' && $isNestedListWrapper(sibling.getNextSibling())) {
-		return sibling.getNextSibling();
+	if (direction === 'down') {
+		// Include the nested list when moving past its parent item
+		return $isNestedListWrapper(sibling.getNextSibling())
+			? sibling.getNextSibling()
+			: sibling;
 	}
 
 	return sibling;
@@ -42,12 +62,14 @@ const $findBlockToMove = (
 ): LexicalNode | null => {
 	if ($isElementNode(node) && !node.isInline()) {
 		const parent = node.getParent();
-		const sibling =
-			direction === 'up' ? node.getPreviousSibling() : node.getNextSibling();
+		const sibling = $getMovableSibling(node, direction);
 
 		if (sibling || !parent || $isRootNode(parent)) {
 			return node;
 		}
+
+		// Do not move outside the nested list - that would change the nesting level
+		if ($isListItemNode(parent)) return null;
 
 		return $findBlockToMove(parent, direction);
 	}
