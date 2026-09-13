@@ -195,3 +195,79 @@ test('Cannot move blocks beyond document boundaries', async () => {
 	expect(paragraphsAfterDown[0]).toHaveTextContent('Green cup');
 	expect(paragraphsAfterDown[1]).toHaveTextContent('Red cup');
 });
+
+test('Moving the first list item up brings the whole list along with it', async () => {
+	const user = userEvent.setup();
+	await renderRichEditor({
+		value: 'Green cup \n\n - First item \n\n - Second item',
+	});
+
+	const editor = screen.getByRole('textbox');
+	const paragraph = within(editor).getByRole('paragraph');
+	expect(paragraph).toHaveTextContent('Green cup');
+
+	expect(within(editor).getByRole('list')).toAppearAfter(paragraph);
+
+	const items = within(editor).getAllByRole('listitem');
+	expect(items).toHaveLength(2);
+	expect(items[0]).toHaveTextContent('First item');
+	expect(items[1]).toHaveTextContent('Second item');
+
+	await user.click(items[0]);
+	setCursorPosition(items[0], 0);
+	await user.keyboard('{Control>}{ArrowUp}{/Control}');
+
+	const paragraphAfterMove = within(editor).getByRole('paragraph');
+	expect(paragraphAfterMove).toHaveTextContent('Green cup');
+
+	expect(within(editor).getByRole('list')).toAppearBefore(paragraphAfterMove);
+
+	const itemsAfterMove = within(editor).getAllByRole('listitem');
+	expect(itemsAfterMove).toHaveLength(2);
+	expect(itemsAfterMove[0]).toHaveTextContent('First item');
+	expect(itemsAfterMove[1]).toHaveTextContent('Second item');
+});
+
+test('List items move within the list before moving the entire list', async () => {
+	const user = userEvent.setup();
+	await renderRichEditor({
+		value: '- First item \n\n - Second item \n\n Green cup',
+	});
+
+	const editor = screen.getByRole('textbox');
+	const paragraph = within(editor).getByRole('paragraph');
+	expect(paragraph).toHaveTextContent('Green cup');
+
+	expect(within(editor).getByRole('list')).toAppearBefore(paragraph);
+
+	const items = within(editor).getAllByRole('listitem');
+	expect(items[0]).toHaveTextContent('First item');
+	expect(items[1]).toHaveTextContent('Second item');
+
+	// Set the cursor on the first item and move it down within the list
+	await user.click(items[0]);
+	setCursorPosition(items[0], 0);
+	await user.keyboard('{Control>}{ArrowDown}{/Control}');
+
+	expect(within(editor).getByRole('list')).toAppearBefore(paragraph);
+
+	const itemsAfterFirstMove = within(editor).getAllByRole('listitem');
+	expect(itemsAfterFirstMove).toHaveLength(2);
+	expect(itemsAfterFirstMove[0]).toHaveTextContent('Second item');
+	expect(itemsAfterFirstMove[1]).toHaveTextContent('First item');
+
+	// Set the cursor on the last item and move the entire list down
+	await user.click(itemsAfterFirstMove[1]);
+	setCursorPosition(itemsAfterFirstMove[1], 0);
+	await user.keyboard('{Control>}{ArrowDown}{/Control}');
+
+	const [paragraphAfterMove] = within(editor).getAllByRole('paragraph');
+	expect(paragraphAfterMove).toHaveTextContent('Green cup');
+
+	expect(within(editor).getByRole('list')).toAppearAfter(paragraphAfterMove);
+
+	const itemsAfterSecondMove = within(editor).getAllByRole('listitem');
+	expect(itemsAfterSecondMove).toHaveLength(2);
+	expect(itemsAfterSecondMove[0]).toHaveTextContent('Second item');
+	expect(itemsAfterSecondMove[1]).toHaveTextContent('First item');
+});
