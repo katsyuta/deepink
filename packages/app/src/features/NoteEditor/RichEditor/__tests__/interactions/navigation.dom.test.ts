@@ -71,7 +71,7 @@ test('Moves a code block up', async () => {
 	expect(codeAfterMove).toAppearBefore(milkParagraph);
 });
 
-test('moving a selection down and then back up restores the original order', async () => {
+test('Moving a selection down and then back up restores the original order', async () => {
 	const user = userEvent.setup();
 	await renderRichEditor({ value: 'Green cup \n\n Red cup \n\n Black cup' });
 
