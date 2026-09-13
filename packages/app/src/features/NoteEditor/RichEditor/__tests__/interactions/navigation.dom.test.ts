@@ -106,7 +106,7 @@ test('Moving a selection down and then back up restores the original order', asy
 	expect(paragraphsAfterUp[2]).toHaveTextContent('Black cup');
 });
 
-test('Moves a list item with its nested list', async () => {
+test('Moves a list item down with its nested list', async () => {
 	const user = userEvent.setup();
 	await renderRichEditor({
 		value: `- First item
@@ -139,7 +139,7 @@ test('Moves a list item with its nested list', async () => {
 	expect(itemsAfterMove[1]).toContainElement(itemsAfterMove[2]);
 });
 
-test('Moves a list item past a nested list', async () => {
+test('Moves a list item up with its nested list', async () => {
 	const user = userEvent.setup();
 	await renderRichEditor({
 		value: `- First item
