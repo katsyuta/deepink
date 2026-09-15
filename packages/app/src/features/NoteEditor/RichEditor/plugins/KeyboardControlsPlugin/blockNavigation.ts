@@ -74,10 +74,13 @@ const $findBlockToMove = (
 			return node;
 		}
 
-		// Do not leave the list when moving from its boundary
+		// Do not leave the list when moving from its boundary.
 		if ($isListItemNode(node)) {
 			return null;
 		}
+
+		// Do not move outside the nested list - that would change the nesting level
+		if ($isListItemNode(parent)) return null;
 
 		return $findBlockToMove(parent, direction);
 	}
@@ -98,7 +101,7 @@ export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirec
 		const firstItem = topLevelList.getFirstChild();
 		const lastItem = topLevelList.getLastChild();
 
-		// Check if selected whole list
+		// A whole list is movable only when the selection spans its boundaries
 		if (
 			$isListItemNode(firstItem) &&
 			$isListItemNode(lastItem) &&
@@ -109,16 +112,12 @@ export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirec
 		}
 	}
 
-	const movableBlocks = new Set<LexicalNode>();
-	selectedNodes.forEach((node) => {
-		const block = $findBlockToMove(node, direction);
+	// A multi node move must be atomic: if one selected node cannot move,
+	// moving only the remaining nodes would change the selection's structure
+	const blocks = selectedNodes.map((node) => $findBlockToMove(node, direction));
+	if (!blocks.every((block) => block !== null)) return null;
 
-		if (block) {
-			movableBlocks.add(block);
-		}
-	});
-
-	if (!movableBlocks.size) return null;
+	const movableBlocks = new Set(blocks);
 
 	const hasMovableAncestor = (node: LexicalNode): boolean => {
 		const parent = node.getParent();
