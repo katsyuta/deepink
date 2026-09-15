@@ -10,7 +10,9 @@ import { $isListItemNode, $isListNode } from '@lexical/list';
 export type MoveDirection = 'up' | 'down';
 
 /**
- * Checks whether a text-less ListItemNode contains only a nested ListNode, representing the visual nesting of the list item
+ * A ListItemNode with no text of its own, wrapping only a nested ListNode
+ * This is how Lexical represents list nesting, it is not a
+ * real item that should ever be selected as a move target on its own
  */
 const $isNestedListWrapper = (node: LexicalNode | null) => {
 	if (!$isListItemNode(node)) return false;
@@ -19,22 +21,33 @@ const $isNestedListWrapper = (node: LexicalNode | null) => {
 };
 
 /**
- * Finds the block sibling to move relative to, skipping nested-list wrappers
+ * The nested list attached to a list item, if any must travel together
+ * with the item whenever it moves
  */
-const $getMovableSibling = (node: LexicalNode, direction: MoveDirection) => {
+const $getNestedListSibling = (node: LexicalNode): LexicalNode | null => {
+	if (!$isListItemNode(node)) return null;
+	const next = node.getNextSibling();
+	return $isNestedListWrapper(next) ? next : null;
+};
+
+/**
+ * Sibling in the given direction, skipping nested-list wrappers so they are
+ * never picked as a standalone move target
+ */
+const $getMovableSibling = (
+	node: LexicalNode,
+	direction: MoveDirection,
+): LexicalNode | null => {
 	const sibling =
 		direction === 'up' ? node.getPreviousSibling() : node.getNextSibling();
-	if (!sibling) return null;
-
-	// Keep a list item and its nested list together
-	if (!$isNestedListWrapper(sibling)) return sibling;
+	if (!sibling || !$isNestedListWrapper(sibling)) return sibling;
 
 	return direction === 'up' ? sibling.getPreviousSibling() : sibling.getNextSibling();
 };
 
 /**
- * Finds the sibling to move the block relative to, skipping nested list
- * wrappers to keep the list item and its nested list together.
+ * The node to swap places with, walking up through parents when the block
+ * is at the edge of its container
  */
 export const $getMoveTarget = (
 	node: LexicalNode,
@@ -42,57 +55,47 @@ export const $getMoveTarget = (
 ): LexicalNode | null => {
 	const sibling = $getMovableSibling(node, direction);
 
-	// No sibling at this level - continue from the parent
 	if (!sibling) {
 		const parent = node.getParent();
 		return parent && !$isRootNode(parent) ? $getMoveTarget(parent, direction) : null;
 	}
 
+	// Moving down past a list item must bring its nested list along
 	if (direction === 'down') {
-		// Include the nested list when moving past its parent item
-		return $isNestedListWrapper(sibling.getNextSibling())
-			? sibling.getNextSibling()
-			: sibling;
+		return $getNestedListSibling(sibling) ?? sibling;
 	}
 
 	return sibling;
 };
 
 /**
- * Walk up the tree from the node to the first block node that has a sibling in the corresponding direction,
- * or to the first top-level node
+ * Ascends from node to the block that actually moves, the closest ancestor
+ * block with a sibling to swap with, or a top-level block otherwise
  */
 const $findBlockToMove = (
 	node: LexicalNode,
 	direction: MoveDirection,
 ): LexicalNode | null => {
-	if ($isElementNode(node) && !node.isInline()) {
-		const parent = node.getParent();
-		const sibling = $getMovableSibling(node, direction);
+	const parent = node.getParent();
 
-		if (sibling || !parent || $isRootNode(parent)) {
-			return node;
-		}
-
-		// Do not leave the list when moving from its boundary.
-		if ($isListItemNode(node)) {
-			return null;
-		}
-
-		// Do not move outside the nested list - that would change the nesting level
-		if ($isListItemNode(parent)) return null;
-
-		return $findBlockToMove(parent, direction);
+	if (!$isElementNode(node) || node.isInline()) {
+		return parent ? $findBlockToMove(parent, direction) : null;
 	}
 
-	const parent = node.getParent();
-	return parent ? $findBlockToMove(parent, direction) : null;
+	if (!parent || $isRootNode(parent) || $getMovableSibling(node, direction)) {
+		return node;
+	}
+
+	// Moving within a list must not cross the list boundary
+	if ($isListItemNode(node) || $isListItemNode(parent)) return null;
+
+	return $findBlockToMove(parent, direction);
 };
 
 export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirection) => {
 	const selectedNodes = selection.getNodes();
 
-	// Return the list if it is fully selected
+	// A list only moves as a whole when the selection spans its full range
 	const topLevelList = selectedNodes
 		.map((node) => $findMatchingParent(node, $isListNode))
 		.find((list) => list && $isRootNode(list.getParent()));
@@ -101,7 +104,6 @@ export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirec
 		const firstItem = topLevelList.getFirstChild();
 		const lastItem = topLevelList.getLastChild();
 
-		// A whole list is movable only when the selection spans its boundaries
 		if (
 			$isListItemNode(firstItem) &&
 			$isListItemNode(lastItem) &&
@@ -112,13 +114,14 @@ export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirec
 		}
 	}
 
-	// A multi node move must be atomic: if one selected node cannot move,
-	// moving only the remaining nodes would change the selection's structure
+	// The move is atomic: if any selected node can't move, moving only the
+	// rest would change the selection's structure, so bail out entirely
 	const blocks = selectedNodes.map((node) => $findBlockToMove(node, direction));
 	if (!blocks.every((block) => block !== null)) return null;
 
 	const movableBlocks = new Set(blocks);
 
+	// Drop blocks already covered by a movable ancestor to avoid duplicates
 	const hasMovableAncestor = (node: LexicalNode): boolean => {
 		const parent = node.getParent();
 		if (!parent) return false;
@@ -130,14 +133,7 @@ export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirec
 	return Array.from(movableBlocks)
 		.filter((node) => !hasMovableAncestor(node))
 		.flatMap((block) => {
-			if (!$isListItemNode(block)) {
-				return [block];
-			}
-
-			const nestedList = block.getNextSibling();
-
-			return nestedList && $isNestedListWrapper(nestedList)
-				? [block, nestedList]
-				: [block];
+			const nestedList = $getNestedListSibling(block);
+			return nestedList ? [block, nestedList] : [block];
 		});
 };
