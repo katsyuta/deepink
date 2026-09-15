@@ -5,7 +5,7 @@ import {
 	LexicalNode,
 	RangeSelection,
 } from 'lexical';
-import { $isListItemNode, $isListNode, ListNode } from '@lexical/list';
+import { $isListItemNode, $isListNode } from '@lexical/list';
 
 export type MoveDirection = 'up' | 'down';
 
@@ -86,17 +86,6 @@ const $findBlockToMove = (
 	return parent ? $findBlockToMove(parent, direction) : null;
 };
 
-const $isEntireListSelected = (selection: RangeSelection, list: ListNode) => {
-	const firstItem = list.getFirstChild();
-	const lastItem = list.getLastChild();
-
-	return (
-		$isListItemNode(firstItem) &&
-		$isListItemNode(lastItem) &&
-		selection.getNodes().some((node) => node === firstItem || node === lastItem)
-	);
-};
-
 export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirection) => {
 	const selectedNodes = selection.getNodes();
 
@@ -105,8 +94,19 @@ export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirec
 		.map((node) => $findMatchingParent(node, $isListNode))
 		.find((list) => list && $isRootNode(list.getParent()));
 
-	if (topLevelList && $isEntireListSelected(selection, topLevelList)) {
-		return [topLevelList];
+	if (topLevelList) {
+		const firstItem = topLevelList.getFirstChild();
+		const lastItem = topLevelList.getLastChild();
+
+		// Check if selected whole list
+		if (
+			$isListItemNode(firstItem) &&
+			$isListItemNode(lastItem) &&
+			selectedNodes.includes(firstItem) &&
+			selectedNodes.includes(lastItem)
+		) {
+			return [topLevelList];
+		}
 	}
 
 	const movableBlocks = new Set<LexicalNode>();
@@ -122,8 +122,10 @@ export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirec
 
 	const hasMovableAncestor = (node: LexicalNode): boolean => {
 		const parent = node.getParent();
+		if (!parent) return false;
+		if (movableBlocks.has(parent)) return true;
 
-		return !!parent && (movableBlocks.has(parent) || hasMovableAncestor(parent));
+		return hasMovableAncestor(parent);
 	};
 
 	return Array.from(movableBlocks)
