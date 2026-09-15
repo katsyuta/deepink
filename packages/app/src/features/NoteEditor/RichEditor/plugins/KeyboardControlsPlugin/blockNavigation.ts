@@ -6,6 +6,7 @@ import {
 	RangeSelection,
 } from 'lexical';
 import { $isListItemNode, $isListNode } from '@lexical/list';
+import { $isQuoteNode } from '@lexical/rich-text';
 
 export type MoveDirection = 'up' | 'down';
 
@@ -68,28 +69,27 @@ export const $getMoveTarget = (
 	return sibling;
 };
 
-/**
- * Ascends from node to the block that actually moves, the closest ancestor
- * block with a sibling to swap with, or a top-level block otherwise
- */
 const $findBlockToMove = (
 	node: LexicalNode,
 	direction: MoveDirection,
 ): LexicalNode | null => {
-	const parent = node.getParent();
-
 	if (!$isElementNode(node) || node.isInline()) {
+		const parent = node.getParent();
 		return parent ? $findBlockToMove(parent, direction) : null;
 	}
 
-	if (!parent || $isRootNode(parent) || $getMovableSibling(node, direction)) {
+	// Normal block movement within the current container
+	if ($getMovableSibling(node, direction)) {
 		return node;
 	}
 
-	// Moving within a list must not cross the list boundary
-	if ($isListItemNode(node) || $isListItemNode(parent)) return null;
+	// If this block is inside a top-level quote, move the whole quote
+	const parent = node.getParent();
+	if ($isQuoteNode(parent) && $isRootNode(parent.getParent())) {
+		return $getMovableSibling(parent, direction) ? parent : null;
+	}
 
-	return $findBlockToMove(parent, direction);
+	return null;
 };
 
 export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirection) => {
