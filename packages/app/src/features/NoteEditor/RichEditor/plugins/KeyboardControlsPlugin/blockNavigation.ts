@@ -1,5 +1,11 @@
-import { $isElementNode, $isRootNode, LexicalNode, RangeSelection } from 'lexical';
-import { $isListItemNode, $isListNode } from '@lexical/list';
+import {
+	$findMatchingParent,
+	$isElementNode,
+	$isRootNode,
+	LexicalNode,
+	RangeSelection,
+} from 'lexical';
+import { $isListItemNode, $isListNode, ListNode } from '@lexical/list';
 
 export type MoveDirection = 'up' | 'down';
 
@@ -68,8 +74,10 @@ const $findBlockToMove = (
 			return node;
 		}
 
-		// Do not move outside the nested list - that would change the nesting level
-		if ($isListItemNode(parent)) return null;
+		// Do not leave the list when moving from its boundary
+		if ($isListItemNode(node)) {
+			return null;
+		}
 
 		return $findBlockToMove(parent, direction);
 	}
@@ -78,10 +86,31 @@ const $findBlockToMove = (
 	return parent ? $findBlockToMove(parent, direction) : null;
 };
 
-export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirection) => {
-	const movableBlocks = new Set<LexicalNode>();
+const $isEntireListSelected = (selection: RangeSelection, list: ListNode) => {
+	const firstItem = list.getFirstChild();
+	const lastItem = list.getLastChild();
 
-	selection.getNodes().forEach((node) => {
+	return (
+		$isListItemNode(firstItem) &&
+		$isListItemNode(lastItem) &&
+		selection.getNodes().some((node) => node === firstItem || node === lastItem)
+	);
+};
+
+export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirection) => {
+	const selectedNodes = selection.getNodes();
+
+	// Return the list if it is fully selected
+	const topLevelList = selectedNodes
+		.map((node) => $findMatchingParent(node, $isListNode))
+		.find((list) => list && $isRootNode(list.getParent()));
+
+	if (topLevelList && $isEntireListSelected(selection, topLevelList)) {
+		return [topLevelList];
+	}
+
+	const movableBlocks = new Set<LexicalNode>();
+	selectedNodes.forEach((node) => {
 		const block = $findBlockToMove(node, direction);
 
 		if (block) {
@@ -94,27 +123,20 @@ export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirec
 	const hasMovableAncestor = (node: LexicalNode): boolean => {
 		const parent = node.getParent();
 
-		if (!parent) return false;
-		if (movableBlocks.has(parent)) return true;
-
-		return hasMovableAncestor(parent);
+		return !!parent && (movableBlocks.has(parent) || hasMovableAncestor(parent));
 	};
 
-	return (
-		Array.from(movableBlocks)
-			// Filter out nested blocks because moving their parent also moves them.
-			.filter((node) => !hasMovableAncestor(node))
-			.flatMap((block) => {
-				if (!$isListItemNode(block)) return [block];
-
-				// A text-less ListItemNode containing only a nested ListNode represents the nesting of block
-				// It must move with `block`, otherwise the nested list would be left behind and appear orphaned
-				const nextSibling = block.getNextSibling();
-				if (nextSibling && $isNestedListWrapper(nextSibling)) {
-					return [block, nextSibling];
-				}
-
+	return Array.from(movableBlocks)
+		.filter((node) => !hasMovableAncestor(node))
+		.flatMap((block) => {
+			if (!$isListItemNode(block)) {
 				return [block];
-			})
-	);
+			}
+
+			const nestedList = block.getNextSibling();
+
+			return nestedList && $isNestedListWrapper(nestedList)
+				? [block, nestedList]
+				: [block];
+		});
 };
