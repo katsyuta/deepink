@@ -270,3 +270,40 @@ test('Move nested blockquote', async () => {
 	expect(nestedQuoteAfterNoop[1]).toHaveTextContent('Nested quote');
 	expect(nestedQuoteAfterNoop[0]).toAppearBefore(nestedQuoteAfterNoop[1]);
 });
+
+test('Moves selected heading and list together', async () => {
+	const user = userEvent.setup();
+	await renderRichEditor({
+		value: `## Warning text \n\n - First item \n\n Another text`,
+	});
+	const editor = screen.getByRole('textbox');
+
+	const heading = within(editor).getByRole('heading');
+	expect(heading).toHaveTextContent('Warning text');
+
+	const paragraph = within(editor).getByRole('paragraph');
+	expect(paragraph).toHaveTextContent('Another text');
+
+	const list = within(editor).getByRole('list');
+	expect(list).toHaveTextContent('First item');
+
+	expect(heading).toAppearBefore(list);
+	expect(list).toAppearBefore(paragraph);
+
+	// Select a few blocks
+	await user.click(editor);
+	selectContent(editor, 'Warning text', 'First item');
+	await user.keyboard('{Alt>}{ArrowDown}{/Alt}');
+
+	const headingAfterMove = within(editor).getByRole('heading');
+	expect(headingAfterMove).toHaveTextContent('Warning text');
+
+	const paragraphAfterMove = within(editor).getByRole('paragraph');
+	expect(paragraphAfterMove).toHaveTextContent('Another text');
+
+	const listAfterMove = within(editor).getByRole('list');
+	expect(listAfterMove).toHaveTextContent('First item');
+
+	expect(paragraphAfterMove).toAppearBefore(headingAfterMove);
+	expect(headingAfterMove).toAppearBefore(listAfterMove);
+});

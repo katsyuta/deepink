@@ -127,19 +127,17 @@ export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirec
 		}
 	}
 
-	if (fullySelectedContainers.size > 0) {
-		return Array.from(fullySelectedContainers).filter(
-			(container) => !$hasMovableAncestor(container, fullySelectedContainers),
-		);
-	}
+	const blocks = selectedNodes.map((node) => {
+		const container = $findMoveContainer(node);
+		if (container && fullySelectedContainers.has(container)) {
+			return container;
+		}
+		return $findBlockToMove(node, direction);
+	});
 
-	// The move is atomic: if any selected node can't move, moving only the
-	// rest would change the selection's structure, so bail out entirely
-	const blocks = selectedNodes.map((node) => $findBlockToMove(node, direction));
 	if (!blocks.every((block) => block !== null)) return null;
 
 	const movableBlocks = new Set(blocks);
-
 	return Array.from(movableBlocks)
 		.filter((node) => !$hasMovableAncestor(node, movableBlocks))
 		.flatMap((block) => {
