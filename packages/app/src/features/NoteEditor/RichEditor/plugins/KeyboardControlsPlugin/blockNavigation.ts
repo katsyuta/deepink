@@ -87,9 +87,6 @@ const $findBlockToMove = (
 	return null;
 };
 
-const $findMoveContainer = (node: LexicalNode) =>
-	$findMatchingParent(node, (node) => $isListNode(node) || $isQuoteNode(node));
-
 // Drop blocks already covered by a movable ancestor to avoid duplicates
 const $hasMovableAncestor = (node: LexicalNode, movable: Set<LexicalNode>) => {
 	const parent = node.getParent();
@@ -101,26 +98,35 @@ const $hasMovableAncestor = (node: LexicalNode, movable: Set<LexicalNode>) => {
 
 export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirection) => {
 	const selectedNodes = selection.getNodes();
+	const selectedSet = new Set(selectedNodes);
+
+	const findMoveContainer = (node: LexicalNode) =>
+		$findMatchingParent(node, (node) => $isListNode(node) || $isQuoteNode(node));
 
 	// Any container whose entire content is covered by the selection moves as
 	// one atomic unit — regardless of type or how deep it is nested
 	const fullySelectedContainers = new Set<LexicalNode>();
 	for (const node of selectedNodes) {
-		const container = $findMoveContainer(node);
+		const container = findMoveContainer(node);
 		if (!$isElementNode(container)) continue;
 
 		const children = container.getChildren();
 		const isFullySelected =
-			children.length > 0 &&
-			children.every((child) => selectedNodes.includes(child));
+			children.length > 0 && children.every((child) => selectedSet.has(child));
 
 		if (isFullySelected) {
+			// Reject moves targeting only a nested list to prevent detaching it from its
+			const parent = container.getParent();
+			if (parent && $isListItemNode(parent) && !selectedSet.has(parent)) {
+				return null;
+			}
+
 			fullySelectedContainers.add(container);
 		}
 	}
 
 	const blocks = selectedNodes.map((node) => {
-		const container = $findMoveContainer(node);
+		const container = findMoveContainer(node);
 		if (container && fullySelectedContainers.has(container)) {
 			return container;
 		}
