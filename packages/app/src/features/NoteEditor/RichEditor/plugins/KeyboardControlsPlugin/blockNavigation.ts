@@ -22,16 +22,6 @@ const $isNestedListWrapper = (node: LexicalNode | null) => {
 };
 
 /**
- * The nested list attached to a list item, if any must travel together
- * with the item whenever it moves
- */
-const $getNestedListSibling = (node: LexicalNode): LexicalNode | null => {
-	if (!$isListItemNode(node)) return null;
-	const next = node.getNextSibling();
-	return $isNestedListWrapper(next) ? next : null;
-};
-
-/**
  * Sibling in the given direction, skipping nested-list wrappers so they are
  * never picked as a standalone move target
  */
@@ -47,8 +37,9 @@ const $getMovableSibling = (
 };
 
 /**
- * The node to swap places with, walking up through parents when the block
- * is at the edge of its container
+ * Finds the target node for moving in the given direction.
+ * Walks up through parent nodes when the current node has no movable sibling.
+ * Includes an attached nested list wrapper when moving down.
  */
 export const $getMoveTarget = (
 	node: LexicalNode,
@@ -61,14 +52,18 @@ export const $getMoveTarget = (
 		return parent && !$isRootNode(parent) ? $getMoveTarget(parent, direction) : null;
 	}
 
-	// Moving down past a list item must bring its nested list along
+	// When moving down, include the nested list if it is attached to the adjacent block
 	if (direction === 'down') {
-		return $getNestedListSibling(sibling) ?? sibling;
+		const next = sibling.getNextSibling();
+		if ($isNestedListWrapper(next)) return next;
 	}
 
 	return sibling;
 };
 
+/**
+ * Finds the nearest movable block for the node
+ */
 const $findBlockToMove = (
 	node: LexicalNode,
 	direction: MoveDirection,
@@ -92,17 +87,6 @@ const $findBlockToMove = (
 	return null;
 };
 
-const $isFullySelectedContainer = (
-	container: LexicalNode,
-	selectedNodes: LexicalNode[],
-) => {
-	if (!$isElementNode(container)) return false;
-	const children = container.getChildren();
-	return (
-		children.length > 0 && children.every((child) => selectedNodes.includes(child))
-	);
-};
-
 const $findMoveContainer = (node: LexicalNode) =>
 	$findMatchingParent(node, (node) => $isListNode(node) || $isQuoteNode(node));
 
@@ -111,6 +95,7 @@ const $hasMovableAncestor = (node: LexicalNode, movable: Set<LexicalNode>) => {
 	const parent = node.getParent();
 	if (!parent) return false;
 	if (movable.has(parent)) return true;
+
 	return $hasMovableAncestor(parent, movable);
 };
 
@@ -122,7 +107,14 @@ export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirec
 	const fullySelectedContainers = new Set<LexicalNode>();
 	for (const node of selectedNodes) {
 		const container = $findMoveContainer(node);
-		if (container && $isFullySelectedContainer(container, selectedNodes)) {
+		if (!$isElementNode(container)) continue;
+
+		const children = container.getChildren();
+		const isFullySelected =
+			children.length > 0 &&
+			children.every((child) => selectedNodes.includes(child));
+
+		if (isFullySelected) {
 			fullySelectedContainers.add(container);
 		}
 	}
@@ -141,7 +133,9 @@ export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirec
 	return Array.from(movableBlocks)
 		.filter((node) => !$hasMovableAncestor(node, movableBlocks))
 		.flatMap((block) => {
-			const nestedList = $getNestedListSibling(block);
+			const next = block.getNextSibling();
+			const nestedList = $isNestedListWrapper(next) ? next : null;
+
 			return nestedList ? [block, nestedList] : [block];
 		});
 };
