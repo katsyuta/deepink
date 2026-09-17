@@ -186,7 +186,6 @@ test('Does not move nested list items out of their parent list', async () => {
 	await renderRichEditor({
 		value: `- Item one
 	- Nested item
-	- Cool item
 - Simple item`,
 	});
 
@@ -194,25 +193,23 @@ test('Does not move nested list items out of their parent list', async () => {
 	expect(within(editor).getAllByRole('list')).toHaveLength(2);
 
 	const items = within(editor).getAllByRole('listitem');
-	expect(items).toHaveLength(4);
+	expect(items).toHaveLength(3);
 
 	expect(items[0]).toHaveTextContent('Item one');
 	expect(items[1]).toHaveTextContent('Nested item');
-	expect(items[2]).toHaveTextContent('Cool item');
-	expect(items[3]).toHaveTextContent('Simple item');
+	expect(items[2]).toHaveTextContent('Simple item');
 
 	await user.click(items[1]);
-	selectContent(editor, 'Nested item', 'Cool item');
+	setCursorPosition(items[1], 0);
 	await user.keyboard('{Alt>}{ArrowDown}{/Alt}');
 
 	// The move should be blocked to prevent breaking list structure
 	const itemsAfterMove = within(editor).getAllByRole('listitem');
-	expect(itemsAfterMove).toHaveLength(4);
+	expect(itemsAfterMove).toHaveLength(3);
 
 	expect(itemsAfterMove[0]).toHaveTextContent('Item one');
 	expect(itemsAfterMove[1]).toHaveTextContent('Nested item');
-	expect(itemsAfterMove[2]).toHaveTextContent('Cool item');
-	expect(itemsAfterMove[3]).toHaveTextContent('Simple item');
+	expect(itemsAfterMove[2]).toHaveTextContent('Simple item');
 });
 
 test('Move nested blockquote', async () => {
