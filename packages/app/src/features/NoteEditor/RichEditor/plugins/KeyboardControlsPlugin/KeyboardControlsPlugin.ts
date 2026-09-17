@@ -119,18 +119,20 @@ export const KeyboardControlsPlugin = () => {
 
 						if (direction === 'up') {
 							const previousBlock = $getMoveTarget(blocksToMove[0], 'up');
+							if (!previousBlock) return false;
 
 							blocksToMove.forEach((block) => {
-								previousBlock?.insertBefore(block);
+								previousBlock.insertBefore(block);
 							});
 						} else {
 							const nextBlock = $getMoveTarget(
 								blocksToMove[blocksToMove.length - 1],
 								'down',
 							);
+							if (!nextBlock) return false;
 
 							blocksToMove.toReversed().forEach((block) => {
-								nextBlock?.insertAfter(block);
+								nextBlock.insertAfter(block);
 							});
 						}
 
