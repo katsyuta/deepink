@@ -11,9 +11,10 @@ import { $isQuoteNode } from '@lexical/rich-text';
 export type MoveDirection = 'up' | 'down';
 
 /**
- * A ListItemNode with no text of its own, wrapping only a nested ListNode
- * This is how Lexical represents list nesting, it is not a
- * real item that should ever be selected as a move target on its own
+ * Checks whether a node is a wrapper for a nested list.
+ *
+ * A ListItemNode is a wrapper when its only child is a ListNode.
+ * Such wrappers should not be used as standalone move targets
  */
 const $isNestedListWrapper = (node: LexicalNode | null) => {
 	if (!$isListItemNode(node)) return false;
@@ -22,13 +23,12 @@ const $isNestedListWrapper = (node: LexicalNode | null) => {
 };
 
 /**
- * Sibling in the given direction, skipping nested-list wrappers so they are
- * never picked as a standalone move target
+ * Finds the movable sibling in the given direction.
+ *
+ * Skips nested-list wrappers so they are never selected as standalone
+ * move targets.
  */
-const $getMovableSibling = (
-	node: LexicalNode,
-	direction: MoveDirection,
-): LexicalNode | null => {
+const $getMovableSibling = (node: LexicalNode, direction: MoveDirection) => {
 	const sibling =
 		direction === 'up' ? node.getPreviousSibling() : node.getNextSibling();
 	if (!sibling || !$isNestedListWrapper(sibling)) return sibling;
@@ -38,6 +38,7 @@ const $getMovableSibling = (
 
 /**
  * Finds the target node for moving in the given direction.
+ *
  * Walks up through parent nodes when the current node has no movable sibling.
  * Includes an attached nested list wrapper when moving down.
  */
@@ -87,13 +88,12 @@ const $findBlockToMove = (
 	return null;
 };
 
-// Drop blocks already covered by a movable ancestor to avoid duplicates
-const $hasMovableAncestor = (node: LexicalNode, movable: Set<LexicalNode>) => {
+const $hasMovableAncestor = (node: LexicalNode, movableNodes: Set<LexicalNode>) => {
 	const parent = node.getParent();
 	if (!parent) return false;
-	if (movable.has(parent)) return true;
+	if (movableNodes.has(parent)) return true;
 
-	return $hasMovableAncestor(parent, movable);
+	return $hasMovableAncestor(parent, movableNodes);
 };
 
 export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirection) => {
@@ -117,7 +117,7 @@ export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirec
 		if (isFullySelected) {
 			// Reject moves targeting only a nested list to prevent detaching it from its
 			const parent = container.getParent();
-			if (parent && $isListItemNode(parent) && !selectedSet.has(parent)) {
+			if (parent && $isNestedListWrapper(parent) && !selectedSet.has(parent)) {
 				return null;
 			}
 
@@ -136,12 +136,15 @@ export const $getBlocksToMove = (selection: RangeSelection, direction: MoveDirec
 	if (!blocks.every((block) => block !== null)) return null;
 
 	const movableBlocks = new Set(blocks);
-	return Array.from(movableBlocks)
-		.filter((node) => !$hasMovableAncestor(node, movableBlocks))
-		.flatMap((block) => {
-			const next = block.getNextSibling();
-			const nestedList = $isNestedListWrapper(next) ? next : null;
+	return (
+		Array.from(movableBlocks)
+			// Drop blocks already covered by a movable ancestor to avoid duplicates
+			.filter((node) => !$hasMovableAncestor(node, movableBlocks))
+			.flatMap((block) => {
+				const next = block.getNextSibling();
+				const nestedList = $isNestedListWrapper(next) ? next : null;
 
-			return nestedList ? [block, nestedList] : [block];
-		});
+				return nestedList ? [block, nestedList] : [block];
+			})
+	);
 };
