@@ -204,12 +204,24 @@ test('Does not move nested list items out of their parent list', async () => {
 	await user.keyboard('{Alt>}{ArrowDown}{/Alt}');
 
 	// The move should be blocked to prevent breaking list structure
-	const itemsAfterMove = within(editor).getAllByRole('listitem');
-	expect(itemsAfterMove).toHaveLength(3);
+	const itemsAfterDown = within(editor).getAllByRole('listitem');
+	expect(itemsAfterDown).toHaveLength(3);
 
-	expect(itemsAfterMove[0]).toHaveTextContent('Item one');
-	expect(itemsAfterMove[1]).toHaveTextContent('Nested item');
-	expect(itemsAfterMove[2]).toHaveTextContent('Simple item');
+	expect(itemsAfterDown[0]).toHaveTextContent('Item one');
+	expect(itemsAfterDown[1]).toHaveTextContent('Nested item');
+	expect(itemsAfterDown[2]).toHaveTextContent('Simple item');
+
+	await user.click(items[1]);
+	setCursorPosition(items[1], 0);
+	await user.keyboard('{Alt>}{ArrowUp}{/Alt}');
+
+	// List structure did not change
+	const itemsAfterUp = within(editor).getAllByRole('listitem');
+	expect(itemsAfterUp).toHaveLength(3);
+
+	expect(itemsAfterUp[0]).toHaveTextContent('Item one');
+	expect(itemsAfterUp[1]).toHaveTextContent('Nested item');
+	expect(itemsAfterUp[2]).toHaveTextContent('Simple item');
 });
 
 test('Move nested blockquote', async () => {
@@ -226,13 +238,12 @@ test('Move nested blockquote', async () => {
 	expect(quotes).toHaveLength(2);
 
 	const nestedQuote = within(quotes[1]).getAllByRole('paragraph');
-
 	expect(nestedQuote).toHaveLength(2);
 	expect(nestedQuote[0]).toHaveTextContent('Nested quote');
 	expect(nestedQuote[1]).toHaveTextContent('Again quote');
 
-	await user.click(editor);
-	selectContent(editor, 'Again quote');
+	await user.click(nestedQuote[1]);
+	selectContent(nestedQuote[1], 'Again quote');
 	await user.keyboard('{Alt>}{ArrowUp}{/Alt}');
 
 	// Nested quote paragraphs should be reordered
@@ -244,6 +255,8 @@ test('Move nested blockquote', async () => {
 	expect(nestedQuoteAfterMove[1]).toHaveTextContent('Nested quote');
 
 	// Moving up again should have no effect
+	await user.click(nestedQuote[1]);
+	selectContent(nestedQuote[1], 'Again quote');
 	await user.keyboard('{Alt>}{ArrowUp}{/Alt}');
 
 	const quotesAfterNoop = within(editor).getAllByRole('blockquote');
@@ -296,18 +309,18 @@ test('Cannot move blocks beyond document boundaries', async () => {
 	await renderRichEditor({ value: 'Green cup \n\n Red cup' });
 
 	const editor = screen.getByRole('textbox');
-	const [firstParagraph, secondParagraph] = within(editor).getAllByRole('paragraph');
+	const paragraphs = within(editor).getAllByRole('paragraph');
 
-	await user.click(firstParagraph);
-	setCursorPosition(firstParagraph, 0);
+	await user.click(paragraphs[0]);
+	setCursorPosition(paragraphs[0], 0);
 	await user.keyboard('{Alt>}{ArrowUp}{/Alt}');
 
 	const paragraphsAfterUp = within(editor).getAllByRole('paragraph');
 	expect(paragraphsAfterUp[0]).toHaveTextContent('Green cup');
 	expect(paragraphsAfterUp[1]).toHaveTextContent('Red cup');
 
-	await user.click(secondParagraph);
-	setCursorPosition(secondParagraph, 0);
+	await user.click(paragraphs[1]);
+	setCursorPosition(paragraphs[1], 0);
 	await user.keyboard('{Alt>}{ArrowDown}{/Alt}');
 
 	const paragraphsAfterDown = within(editor).getAllByRole('paragraph');
