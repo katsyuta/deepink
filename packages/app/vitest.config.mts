@@ -3,6 +3,7 @@ import 'dotenv/config'
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
 import { pathToFileURL } from 'url';
+import { viteStaticCopy } from 'vite-plugin-static-copy'
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { defaultExclude, defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
@@ -90,8 +91,22 @@ export default defineConfig({
 						'react-dom/client',
 					],
 				},
-				plugins: [react()],
+				plugins: [
+					react(),
+					viteStaticCopy({
+						targets: [
+							{
+								src: 'src/locales/**',
+								dest: 'locales',
+								rename: { stripBase: 2 }
+							},
+						],
+					}),
+				],
 				test: {
+					name: 'browser',
+					include: ['./**/*.browser.test.ts'],
+					setupFiles: ['./scripts/vitest/browser-setup.ts'],
 					browser: {
 						// Vitest's default browser server port (63315) is in the
 						// ephemeral range, and Windows reserves randomized blocks of
@@ -115,8 +130,6 @@ export default defineConfig({
 							},
 						}),
 					},
-					include: ['./**/*.browser.test.ts'],
-					name: 'browser',
 				},
 			},
 		],

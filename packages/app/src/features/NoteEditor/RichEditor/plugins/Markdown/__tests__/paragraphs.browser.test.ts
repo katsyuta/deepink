@@ -4,11 +4,8 @@ import { renderRichEditorInDOM } from '@features/NoteEditor/RichEditor/__tests__
 
 import { $convertToMarkdownString, parseMarkdownToAST } from '../markdownParser';
 
-vi.mock('electron', () => () => {});
-
 test('Exact paragraphs count must be preserved', async () => {
-	const { getEditor, destroy } = await renderRichEditorInDOM({ value: '' });
-	onTestFinished(destroy);
+	const { getEditor } = await renderRichEditorInDOM({ value: '' });
 
 	const textbox = page.getByRole('textbox');
 	const paragraph = page.getByRole('paragraph');
@@ -33,8 +30,7 @@ test('Exact paragraphs count must be preserved', async () => {
 });
 
 test('Empty paragraphs must be preserved', async () => {
-	const { getEditor, destroy } = await renderRichEditorInDOM({ value: '' });
-	onTestFinished(destroy);
+	const { getEditor } = await renderRichEditorInDOM({ value: '' });
 
 	const textbox = page.getByRole('textbox');
 	const paragraph = page.getByRole('paragraph');

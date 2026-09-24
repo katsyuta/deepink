@@ -3,15 +3,18 @@ import {
 	$createParagraphNode,
 	$createTextNode,
 	$getRoot,
+	$getSelection,
+	$insertNodes,
 	$isBlockElementNode,
 	$isParagraphNode,
+	$isRangeSelection,
 	$isRootNode,
 	$isTextNode,
 	CONTROLLED_TEXT_INSERTION_COMMAND,
 	FORMAT_TEXT_COMMAND,
 } from 'lexical';
 import { $createCodeNode } from '@lexical/code-core';
-import { TOGGLE_LINK_COMMAND } from '@lexical/link';
+import { $createLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link';
 import {
 	INSERT_CHECK_LIST_COMMAND,
 	INSERT_ORDERED_LIST_COMMAND,
@@ -21,7 +24,11 @@ import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext
 import { INSERT_HORIZONTAL_RULE_COMMAND } from '@lexical/react/LexicalHorizontalRuleNode';
 import { $createHeadingNode, $createQuoteNode, $isHeadingNode } from '@lexical/rich-text';
 
-import { InsertingPayloadMap, useEditorPanelContext } from '../../../EditorPanel';
+import {
+	CommandsPayloadMap,
+	InsertingPayloadMap,
+	useEditorPanelContext,
+} from '../../../EditorPanel';
 import { $getCursorNode } from '../../utils/selection';
 
 import { INSERT_FILES_COMMAND } from '../Files/FilesPlugin';
@@ -34,7 +41,7 @@ import { $canInsertElementsToNode, $getNearestSibling, $wrapNodes } from './util
 export const EditorPanelPlugin = () => {
 	const [editor] = useLexicalComposerContext();
 
-	const { onInserting, onFormatting } = useEditorPanelContext();
+	const { onInserting, onFormatting, onCommand } = useEditorPanelContext();
 
 	useEffect(() => {
 		const cleanupFormatting = onFormatting.watch((format) => {
@@ -118,7 +125,18 @@ export const EditorPanelPlugin = () => {
 					}
 				},
 				link({ url }) {
-					editor.dispatchCommand(TOGGLE_LINK_COMMAND, { url });
+					editor.update(() => {
+						const selection = $getSelection();
+						if (!selection) return;
+
+						if ($isRangeSelection(selection) && selection.isCollapsed()) {
+							const linkNode = $createLinkNode(url);
+							linkNode.append($createTextNode(url));
+							$insertNodes([linkNode]);
+						} else {
+							editor.dispatchCommand(TOGGLE_LINK_COMMAND, { url });
+						}
+					});
 				},
 				image({ url, altText }) {
 					editor.update(() => {
@@ -211,11 +229,37 @@ export const EditorPanelPlugin = () => {
 			}
 		});
 
+		const cleanupCommands = onCommand.watch((evt) => {
+			const commands: {
+				[K in keyof CommandsPayloadMap]?: (
+					payload: CommandsPayloadMap[K],
+				) => void;
+			} = {
+				removeLink() {
+					editor.update(() => {
+						const selection = $getSelection();
+						if (!selection) return;
+
+						// TODO: Find link
+						editor.dispatchCommand(TOGGLE_LINK_COMMAND, null);
+					});
+				},
+			};
+
+			const command = commands[evt.command];
+			if (command) {
+				// Data depends on type, so it always will match
+				// @ts-expect-error TODO: review this exception
+				command(evt.data);
+			}
+		});
+
 		return () => {
 			cleanupFormatting();
 			cleanupInserting();
+			cleanupCommands();
 		};
-	}, [editor, onFormatting, onInserting]);
+	}, [editor, onCommand, onFormatting, onInserting]);
 
 	return null;
 };

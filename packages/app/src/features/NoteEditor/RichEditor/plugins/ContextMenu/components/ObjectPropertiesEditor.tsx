@@ -1,5 +1,5 @@
 import * as React from 'react';
-import FocusLock, { AutoFocusInside } from 'react-focus-lock';
+import FocusLock, { MoveFocusInside } from 'react-focus-lock';
 import { FaXmark } from 'react-icons/fa6';
 import { Button, Card, HStack, Text } from '@chakra-ui/react';
 import {
@@ -40,16 +40,16 @@ export const ObjectPropertiesEditor = <T extends OptionObject[]>({
 					<Text>{title}</Text>
 					{onClose && (
 						<HStack marginLeft="1rem">
-							<Button size="sm" onClick={onClose}>
+							<Button size="sm" variant="ghost" onClick={onClose}>
 								<FaXmark />
 							</Button>
 						</HStack>
 					)}
 				</Card.Header>
 				<Card.Body padding="1rem">
-					<AutoFocusInside>
+					<MoveFocusInside>
 						<PropertiesForm {...rest} onCancel={onClose} />
-					</AutoFocusInside>
+					</MoveFocusInside>
 				</Card.Body>
 			</Card.Root>
 		</FocusLock>

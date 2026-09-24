@@ -1,8 +1,10 @@
+/* eslint-disable i18next/no-literal-string */
 import React, { act, createRef } from 'react';
-import { createRoot } from 'react-dom/client';
+import { createRoot, Root } from 'react-dom/client';
 import { Provider } from 'react-redux';
 import { createEvent } from 'effector';
 import { LexicalEditor } from 'lexical';
+import { LocalesProvider } from 'src/LocalesProvider';
 import { FilesController } from '@core/features/files/FilesController';
 import {
 	FilesRegistryContext,
@@ -10,6 +12,7 @@ import {
 	NotesRegistryContext,
 } from '@features/App/Workspace/WorkspaceProvider';
 import {
+	CommandsPayload,
 	editorPanelContext,
 	InsertingPayload,
 	TextFormat,
@@ -62,21 +65,43 @@ export const MockWorkspaceProvider = ({ children }: { children: React.ReactNode 
 	);
 };
 
-export const renderRichEditorInDOM = async (props: RichEditorContentProps) => {
+export type RichEditorTestAPI = {
+	root: Root;
+	container: HTMLDivElement;
+	destroy(): void;
+	insert: (payload: InsertingPayload) => Promise<void>;
+	format: (format: TextFormat) => Promise<void>;
+	command: (format: CommandsPayload) => Promise<void>;
+	getEditor(): LexicalEditor;
+};
+
+export const renderRichEditorInDOM = async ({
+	waitForLoading = true,
+	destroyHook = onTestFinished,
+	...props
+}: RichEditorContentProps & {
+	waitForLoading?: boolean;
+	destroyHook?: ((cb: () => void) => void) | null;
+}): Promise<RichEditorTestAPI> => {
 	const { store } = createTestStore();
 	const onFormatting = createEvent<TextFormat>();
 	const onInserting = createEvent<InsertingPayload>();
+	const onCommand = createEvent<CommandsPayload>();
 
 	const editorRef = createRef<LexicalEditor>();
 
 	const renderEditor = (props: RichEditorContentProps) => (
 		<Provider store={store}>
 			<ThemeProvider>
-				<MockWorkspaceProvider>
-					<editorPanelContext.Provider value={{ onInserting, onFormatting }}>
-						<RichEditor placeholder="Enter text" {...props} />
-					</editorPanelContext.Provider>
-				</MockWorkspaceProvider>
+				<LocalesProvider>
+					<MockWorkspaceProvider>
+						<editorPanelContext.Provider
+							value={{ onInserting, onFormatting, onCommand }}
+						>
+							<RichEditor placeholder="Enter text" {...props} />
+						</editorPanelContext.Provider>
+					</MockWorkspaceProvider>
+				</LocalesProvider>
 			</ThemeProvider>
 		</Provider>
 	);
@@ -87,15 +112,46 @@ export const renderRichEditorInDOM = async (props: RichEditorContentProps) => {
 	const root = createRoot(container);
 	act(() => root.render(renderEditor({ ...props, editorRef })));
 
+	const destroy = () => {
+		act(() => {
+			root.unmount();
+		});
+		container.remove();
+	};
+
+	if (waitForLoading) {
+		while (true) {
+			const editor = await act(() => editorRef.current);
+			if (editor) break;
+		}
+	}
+
+	if (destroyHook) destroyHook(destroy);
+
 	return {
 		root,
 		container,
 
-		destroy() {
-			act(() => {
-				root.unmount();
-			});
-			container.remove();
+		destroy,
+
+		/**
+		 * Simulates an editor panel action like inserting image
+		 */
+		insert: async (payload: InsertingPayload) => {
+			// Wrap editor actions in act() so React flushes all state updates
+			// before assertions are executed
+			await act(async () => onInserting(payload));
+		},
+
+		/**
+		 * Simulates an editor panel formatting action like bold, italic and etc
+		 */
+		format: async (format: TextFormat) => {
+			await act(async () => onFormatting(format));
+		},
+
+		command: async (format: CommandsPayload) => {
+			await act(async () => onCommand(format));
 		},
 
 		getEditor() {

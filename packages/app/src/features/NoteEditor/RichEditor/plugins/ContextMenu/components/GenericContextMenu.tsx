@@ -1,12 +1,14 @@
 import React, { FC } from 'react';
 import { useTranslation } from 'react-i18next';
+import { $getSelection, $isNodeSelection, $isRangeSelection } from 'lexical';
 import { LOCALE_NAMESPACE } from 'src/i18n';
-import { $isLinkNode } from '@lexical/link';
+import { $isLinkNode, TOGGLE_LINK_COMMAND } from '@lexical/link';
 import { $findMatchingParent } from '@lexical/utils';
 
 import { $isImageNode } from '../../Image/ImageNode';
 
 import { ContextMenuRendererProps } from '../ContextMenuPlugin';
+import { LinkEditor } from './LinkEditor';
 import { ObjectPropertiesEditor } from './ObjectPropertiesEditor';
 
 export const GenericContextMenu: FC<ContextMenuRendererProps> = ({
@@ -50,24 +52,35 @@ export const GenericContextMenu: FC<ContextMenuRendererProps> = ({
 			? node
 			: $findMatchingParent(node, (node) => $isLinkNode(node));
 		if ($isLinkNode(linkNode)) {
+			const updateLink = (url: string | null) => {
+				editor.update(() => {
+					// Remove link
+					if (url === null || url.trim() === '') {
+						const selection = $getSelection();
+
+						let isCursorOnLink = false;
+						if ($isRangeSelection(selection) || $isNodeSelection(selection)) {
+							isCursorOnLink = selection
+								.getNodes()
+								.every((node) => node.is(linkNode));
+						}
+
+						if (!isCursorOnLink) linkNode.select();
+
+						editor.dispatchCommand(TOGGLE_LINK_COMMAND, null);
+						return;
+					}
+
+					linkNode.setURL(url);
+				});
+			};
+
 			return (
-				<ObjectPropertiesEditor
-					title={t('contextMenu.linkProperties.title')}
+				<LinkEditor
+					url={linkNode.getURL()}
+					onChange={updateLink}
+					onUnlink={() => updateLink(null)}
 					onClose={close}
-					options={[
-						{
-							id: 'url',
-							value: linkNode.getURL(),
-							label: t('contextMenu.linkProperties.urlLabel'),
-						},
-					]}
-					onUpdate={({ url, alt }) => {
-						editor.update(() => {
-							linkNode.setURL(url);
-							linkNode.setTitle(alt);
-						});
-						close();
-					}}
 				/>
 			);
 		}

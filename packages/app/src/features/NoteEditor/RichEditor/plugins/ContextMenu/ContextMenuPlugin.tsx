@@ -21,7 +21,6 @@ export const ContextMenuPlugin = ({
 	...props
 }: ContextMenuProps) => {
 	const [editor] = useLexicalComposerContext();
-	const rootElement = editor.getRootElement();
 
 	const [menuContext, setMenuContext] = useState<{
 		node: LexicalNode;
@@ -30,10 +29,12 @@ export const ContextMenuPlugin = ({
 
 	const close = useCallback(() => {
 		setMenuContext(null);
-	}, []);
+		editor.focus();
+	}, [editor]);
 
 	// Trigger context menu
 	useEffect(() => {
+		const rootElement = editor.getRootElement();
 		if (!rootElement) return;
 
 		const onContextMenu = (evt: MouseEvent) => {
@@ -54,11 +55,13 @@ export const ContextMenuPlugin = ({
 			});
 		};
 
-		rootElement.addEventListener('contextmenu', onContextMenu);
+		rootElement.addEventListener('contextmenu', onContextMenu, { capture: true });
 		return () => {
-			rootElement.removeEventListener('contextmenu', onContextMenu);
+			rootElement.removeEventListener('contextmenu', onContextMenu, {
+				capture: true,
+			});
 		};
-	}, [editor, rootElement, setMenuContext]);
+	}, [editor, setMenuContext]);
 
 	// Maintain context data
 	useEffect(() => {
@@ -98,7 +101,13 @@ export const ContextMenuPlugin = ({
 
 	return children ? (
 		<Portal>
-			<Popper referenceRef={menuContext?.element} onClose={close} {...props}>
+			<Popper
+				referenceRef={menuContext?.element}
+				onClose={close}
+				allowedPlacements={['bottom', 'top']}
+				boundary={editor.getRootElement() ?? undefined}
+				{...props}
+			>
 				{children}
 			</Popper>
 		</Portal>
